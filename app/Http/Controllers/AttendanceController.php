@@ -15,14 +15,14 @@ class AttendanceController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if ($user->role->name !== 'Dosen') {
-            return back()->with('error', 'Hanya untuk Dosen.');
+        if ($user->role->name === 'Dosen') {
+            $subjects = Subject::where('lecturer_id', $user->lecturer->id)->get();
+            $classes = CourseClass::all();
+            return view('dashboard.attendance.index', compact('subjects', 'classes'));
+        } else {
+            $attendanceData = $this->attendanceService->getStudentAttendanceSummary($user->student->id);
+            return view('dashboard.attendance.student_index', compact('attendanceData'));
         }
-
-        $subjects = Subject::where('lecturer_id', $user->lecturer->id)->get();
-        $classes = CourseClass::all(); // Simplified
-
-        return view('dashboard.attendance.index', compact('subjects', 'classes'));
     }
 
     public function showChecklist(Request $request)

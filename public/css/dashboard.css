@@ -23,7 +23,10 @@ body {
     background: var(--sidebar-bg);
     color: #fff;
     transition: all 0.3s;
-    min-height: 100vh;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
 }
 
 #sidebar .sidebar-header {

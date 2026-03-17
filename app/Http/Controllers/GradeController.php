@@ -55,7 +55,31 @@ class GradeController extends Controller
         if (!$user->student) {
             return back()->with('error', 'Hanya untuk Mahasiswa.');
         }
-        $grades = $this->gradeService->getStudentGrades($user->student->id);
-        return view('dashboard.grade.history', compact('grades'));
+        $gradesGrouped = $this->gradeService->getStudentGrades($user->student->id);
+        
+        $ipsData = [];
+        $totalPoints = 0;
+        $totalSks = 0;
+
+        foreach ($gradesGrouped as $semester => $semesterGrades) {
+            $ips = $this->gradeService->calculateGPA($semesterGrades);
+            $ipsData[$semester] = $ips;
+            
+            foreach ($semesterGrades as $grade) {
+                $score = ($grade->tugas * 0.3) + ($grade->uts * 0.3) + ($grade->uas * 0.4);
+                $point = 0;
+                if ($score >= 80) $point = 4.0;
+                elseif ($score >= 70) $point = 3.0;
+                elseif ($score >= 60) $point = 2.0;
+                elseif ($score >= 50) $point = 1.0;
+                
+                $totalPoints += ($point * $grade->subject->sks);
+                $totalSks += $grade->subject->sks;
+            }
+        }
+
+        $ipk = $totalSks > 0 ? round($totalPoints / $totalSks, 2) : 0;
+
+        return view('dashboard.grade.history', compact('gradesGrouped', 'ipsData', 'ipk'));
     }
 }

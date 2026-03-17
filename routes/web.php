@@ -8,6 +8,8 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\GradeController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\CourseController;
+use App\Http\Controllers\LecturerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -44,8 +46,14 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard & Academic Features
     // Dashboard is now accessible to all authenticated users
     Route::get('/dashboard', function () {
+        if (Auth::user()->role->name === 'Dosen') {
+            return redirect()->route('lecturer.dashboard');
+        }
         return view('dashboard.home');
     })->name('dashboard');
+
+    Route::get('/lecturer/dashboard', [LecturerController::class, 'dashboard'])->name('lecturer.dashboard');
+    Route::get('/lecturer/students', [LecturerController::class, 'students'])->name('lecturer.students');
 
     Route::get('/profile', [StudentController::class, 'showCompleteBiodata'])->name('profile.show');
 
@@ -56,6 +64,13 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/chat/{room?}', [ChatController::class, 'showRoom'])->name('chat.show');
         Route::post('/chat/send', [ChatController::class, 'sendMessage'])->name('chat.send');
+
+        Route::get('/matakuliah', [CourseController::class, 'index'])->name('matakuliah.index');
+        Route::get('/materi', [CourseController::class, 'materiIndex'])->name('materi.index');
+        Route::get('/materi/{subject_id}', [CourseController::class, 'materiDetail'])->name('materi.detail');
+        Route::get('/tugas', [CourseController::class, 'tugasIndex'])->name('tugas.index');
+        Route::get('/tugas/{subject_id}', [CourseController::class, 'tugasDetail'])->name('tugas.detail');
+        Route::post('/tugas/submit', [CourseController::class, 'submitAssignment'])->name('tugas.submit');
 
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
         Route::get('/attendance/checklist', [AttendanceController::class, 'showChecklist'])->name('attendance.checklist');

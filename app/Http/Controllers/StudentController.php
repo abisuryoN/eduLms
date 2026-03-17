@@ -18,8 +18,27 @@ class StudentController extends Controller
     public function completeBiodata(Request $request)
     {
         $data = $request->validate([
-            'biodata' => 'required|string',
-            'cv_file' => 'required|file|mimes:pdf,doc,docx|max:5120'
+            'biodata' => 'nullable|string',
+            'cv_file' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+            'nik' => 'nullable|string',
+            'npwp' => 'nullable|string',
+            'tempat_lahir' => 'nullable|string',
+            'tanggal_lahir' => 'nullable|date',
+            'agama' => 'nullable|string',
+            'kewarganegaraan' => 'nullable|string',
+            'no_telp' => 'nullable|string',
+            'jenis_kelamin' => 'nullable|string',
+            'status_perkawinan' => 'nullable|string',
+            'golongan_darah' => 'nullable|string',
+            'berat_badan' => 'nullable|integer',
+            'tinggi_badan' => 'nullable|integer',
+            'ukuran_baju' => 'nullable|string',
+            'alamat_lengkap' => 'nullable|string',
+            'nama_ayah' => 'nullable|string',
+            'nama_ibu' => 'nullable|string',
+            'nama_wali' => 'nullable|string',
+            'no_telp_ortu' => 'nullable|string',
+            'sekolah_asal' => 'nullable|string',
         ]);
 
         $this->studentService->completeBiodata(Auth::user()->id, $data);

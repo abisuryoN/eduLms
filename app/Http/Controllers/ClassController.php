@@ -17,8 +17,11 @@ class ClassController extends Controller
             return back()->with('error', 'Akses hanya untuk Mahasiswa.');
         }
 
-        $subjects = $this->classService->getStudentEnrolledSubjects($user->student->id);
-        return view('dashboard.kelas.index', compact('subjects'));
+        $student = $user->student;
+        $classmates = $this->classService->getStudentsByClassName($student->kelas);
+        $subjects = $this->classService->getStudentEnrolledSubjects($student->id);
+        
+        return view('dashboard.kelas.index', compact('student', 'classmates', 'subjects'));
     }
 
     public function show(int $subjectId)

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\Student;
+use App\Models\Subject;
 
 class AttendanceService
 {
@@ -15,7 +16,7 @@ class AttendanceService
         return Attendance::create([
             'course_class_id' => $classId,
             'subject_id' => $subjectId,
-            'attendance_date' => now(),
+            'date' => now(),
             'student_checklist' => $studentChecklist,
         ]);
     }
@@ -28,5 +29,30 @@ class AttendanceService
         return Student::whereHas('enrollments', function ($query) use ($classId) {
             $query->where('course_class_id', $classId);
         })->with('user')->get();
+    }
+
+    public function getStudentAttendanceSummary(int $studentId)
+    {
+        $subjects = Subject::whereHas('enrollments', function($q) use ($studentId) {
+            $q->where('student_id', $studentId);
+        })->get();
+
+        $summary = [];
+        foreach ($subjects as $subject) {
+            $totalClasses = 14; // Default total meetings
+            $attendedCount = Attendance::where('subject_id', $subject->id)
+                ->whereJsonContains('student_checklist', (string)$studentId)
+                ->count();
+            
+            $percentage = ($totalClasses > 0) ? ($attendedCount / $totalClasses) * 100 : 0;
+            $summary[] = (object)[
+                'subject_name' => $subject->name,
+                'attended' => $attendedCount,
+                'total' => $totalClasses,
+                'percentage' => round($percentage, 1)
+            ];
+        }
+
+        return $summary;
     }
 }

@@ -23,39 +23,51 @@
             </div>
 
             <ul class="list-unstyled components">
-                <li class="{{ Request::is('dashboard') ? 'active' : '' }}">
-                    <a href="{{ route('dashboard') }}"><i class="fa-solid fa-gauge me-3"></i>Dashboard</a>
-                </li>
-                <li>
-                    <a href="{{ route('profile.show') }}"><i class="fa-solid fa-user me-3"></i>Profil</a>
-                </li>
-                <li class="{{ Request::is('kelas*') ? 'active' : '' }}">
-                    <a href="{{ route('kelas.index') }}"><i class="fa-solid fa-school me-3"></i>Kelas</a>
-                </li>
-                <li>
-                    <a href="{{ route('kelas.index') }}"><i class="fa-solid fa-book me-3"></i>Mata Kuliah</a>
-                </li>
-                <li>
-                    <a href="{{ route('kelas.index') }}"><i class="fa-solid fa-file-lines me-3"></i>Materi</a>
-                </li>
-                <li>
-                    <a href="#"><i class="fa-solid fa-list-check me-3"></i>Tugas</a>
-                </li>
-                <li class="{{ Request::is('grade*') ? 'active' : '' }}">
-                    <a href="{{ route('grade.history') }}"><i class="fa-solid fa-chart-simple me-3"></i>Riwayat Nilai</a>
-                </li>
-                <li class="{{ Request::is('attendance*') ? 'active' : '' }}">
-                    <a href="{{ route('attendance.index') }}"><i class="fa-solid fa-calendar-check me-3"></i>Presensi</a>
-                </li>
-                <li class="{{ Request::is('chat*') ? 'active' : '' }}">
-                    <a href="{{ route('chat.show') }}"><i class="fa-solid fa-comments me-3"></i>Chat Kelas</a>
-                </li>
-                <li class="{{ Request::is('payment*') ? 'active' : '' }}">
-                    <a href="{{ route('payment.history') }}"><i class="fa-solid fa-credit-card me-3"></i>Riwayat Tagihan</a>
-                </li>
-                <li class="{{ Request::is('krs*') ? 'active' : '' }}">
-                    <a href="{{ route('krs.index') }}"><i class="fa-solid fa-file-pen me-3"></i>Isi KRS</a>
-                </li>
+                @if(Auth::user()->role->name === 'Mahasiswa')
+                    <li class="{{ Request::is('dashboard') ? 'active' : '' }}">
+                        <a href="{{ route('dashboard') }}"><i class="fa-solid fa-gauge me-3"></i>Dashboard</a>
+                    </li>
+                    <li class="{{ Request::is('kelas*') ? 'active' : '' }}">
+                        <a href="{{ route('kelas.index') }}"><i class="fa-solid fa-school me-3"></i>Kelas</a>
+                    </li>
+                    <li class="{{ Request::is('matakuliah*') ? 'active' : '' }}">
+                        <a href="{{ route('matakuliah.index') }}"><i class="fa-solid fa-book me-3"></i>Mata Kuliah</a>
+                    </li>
+                    <li class="{{ Request::is('materi*') ? 'active' : '' }}">
+                        <a href="{{ route('materi.index') }}"><i class="fa-solid fa-file-lines me-3"></i>Materi</a>
+                    </li>
+                    <li class="{{ Request::is('tugas*') ? 'active' : '' }}">
+                        <a href="{{ route('tugas.index') }}"><i class="fa-solid fa-list-check me-3"></i>Tugas</a>
+                    </li>
+                    <li class="{{ Request::is('grade*') ? 'active' : '' }}">
+                        <a href="{{ route('grade.history') }}"><i class="fa-solid fa-chart-simple me-3"></i>Riwayat Nilai</a>
+                    </li>
+                    <li class="{{ Request::is('attendance*') ? 'active' : '' }}">
+                        <a href="{{ route('attendance.index') }}"><i class="fa-solid fa-calendar-check me-3"></i>Presensi</a>
+                    </li>
+                    <li class="{{ Request::is('chat*') ? 'active' : '' }}">
+                        <a href="{{ route('chat.show') }}"><i class="fa-solid fa-comments me-3"></i>Chat Kelas</a>
+                    </li>
+                    <li class="{{ Request::is('payment*') ? 'active' : '' }}">
+                        <a href="{{ route('payment.history') }}"><i class="fa-solid fa-credit-card me-3"></i>Biaya Kuliah</a>
+                    </li>
+                @elseif(Auth::user()->role->name === 'Dosen')
+                    <li class="{{ Request::is('lecturer/dashboard') ? 'active' : '' }}">
+                        <a href="{{ route('lecturer.dashboard') }}"><i class="fa-solid fa-house me-3"></i>Beranda Dosen</a>
+                    </li>
+                    <li class="{{ Request::is('lecturer/students*') ? 'active' : '' }}">
+                        <a href="{{ route('lecturer.students') }}"><i class="fa-solid fa-users me-3"></i>Mahasiswa</a>
+                    </li>
+                    <li class="{{ Request::is('attendance*') ? 'active' : '' }}">
+                        <a href="{{ route('attendance.index') }}"><i class="fa-solid fa-calendar-check me-3"></i>Input Absensi</a>
+                    </li>
+                    <li class="{{ Request::is('grade*') ? 'active' : '' }}">
+                        <a href="{{ route('grade.index') }}"><i class="fa-solid fa-pen-to-square me-3"></i>Input Nilai</a>
+                    </li>
+                    <li class="{{ Request::is('chat*') ? 'active' : '' }}">
+                        <a href="{{ route('chat.show') }}"><i class="fa-solid fa-comments me-3"></i>Chat Mahasiswa</a>
+                    </li>
+                @endif
                 <li class="mt-4">
                     <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
                         @csrf

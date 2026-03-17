@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->integer('sks');
+            $table->integer('semester')->default(1);
             $table->foreignId('lecturer_id')->constrained('lecturers')->onDelete('cascade');
             $table->timestamps();
         });

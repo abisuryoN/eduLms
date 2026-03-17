@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('course_class_id')->constrained('course_classes')->onDelete('cascade');
             $table->foreignId('subject_id')->constrained('subjects')->onDelete('cascade');
             $table->string('title');
+            $table->integer('meeting_number')->default(1);
             $table->string('file_path');
             $table->timestamps();
         });

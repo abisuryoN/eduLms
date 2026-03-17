@@ -44,4 +44,8 @@ class ClassService
             ->where('course_class_id', $classId)
             ->exists();
     }
+    public function getStudentsByClassName(string $className)
+    {
+        return \App\Models\Student::where('kelas', $className)->with('user')->get();
+    }
 }
