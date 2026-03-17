@@ -19,7 +19,7 @@ class ClassController extends Controller
 
         $student = $user->student;
         $classmates = $this->classService->getStudentsByClassName($student->kelas);
-        $subjects = $this->classService->getStudentEnrolledSubjects($student->id);
+        $subjects = $this->classService->getStudentEnrolledSubjects($student->id, $student->semester);
         
         return view('dashboard.kelas.index', compact('student', 'classmates', 'subjects'));
     }

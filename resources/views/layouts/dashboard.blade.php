@@ -27,6 +27,9 @@
                     <li class="{{ Request::is('dashboard') ? 'active' : '' }}">
                         <a href="{{ route('dashboard') }}"><i class="fa-solid fa-gauge me-3"></i>Dashboard</a>
                     </li>
+                    <li class="{{ Request::is('profile*') ? 'active' : '' }}">
+                        <a href="{{ route('profile.show') }}"><i class="fa-solid fa-user me-3"></i>Profil Saya</a>
+                    </li>
                     <li class="{{ Request::is('kelas*') ? 'active' : '' }}">
                         <a href="{{ route('kelas.index') }}"><i class="fa-solid fa-school me-3"></i>Kelas</a>
                     </li>

@@ -1,114 +1,225 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Riwayat Nilai Akademik')
+@section('title', 'Riwayat Nilai & Transkrip')
 
 @section('content')
 <div class="container-fluid">
-    <div class="mb-4 d-flex justify-content-between align-items-center">
-        <div>
-            <h3 class="fw-bold text-dark mb-1">Riwayat Nilai Akademik</h3>
-            <p class="text-muted">Pantau pencapaian akademik Anda per semester.</p>
-        </div>
-    </div>
-
-    <div class="row g-3 mb-4">
-        <div class="col-md-6">
-            <div class="card card-widget border-0 shadow-sm bg-primary text-white p-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="x-small text-white-50 d-block mb-1">IPK (Indeks Prestasi Kumulatif)</span>
-                        <h2 class="fw-bold mb-0">{{ number_format($ipk, 2) }}</h2>
+    <div class="row g-4">
+        <!-- Semester Selector & Stats -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-4">Ringkasan Akademik</h5>
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="widget-icon bg-primary bg-opacity-10 text-primary me-3">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </div>
+                        <div>
+                            <span class="text-muted small d-block">IPK Kumulatif</span>
+                            <h3 class="fw-bold mb-0 text-primary">{{ number_format($ipk, 2) }}</h3>
+                        </div>
                     </div>
-                    <div class="widget-icon bg-white bg-opacity-20 border-0">
-                        <i class="fa-solid fa-chart-line text-white"></i>
+                    
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Pilih Semester</label>
+                        <select class="form-select border-0 bg-light rounded-3" id="semesterFilter">
+                            @foreach($gradesGrouped as $sem => $grades)
+                                <option value="sem-{{ $sem }}" {{ $sem == Auth::user()->student->semester ? 'selected' : '' }}>Semester {{ $sem }}</option>
+                            @endforeach
+                            <option value="transcript">Seluruh Semester (Transkrip)</option>
+                        </select>
+                    </div>
+
+                    <div class="d-grid">
+                        <button class="btn btn-outline-primary rounded-pill" onclick="showTranscript()">
+                            <i class="fa-solid fa-file-invoice me-2"></i>Lihat Transkrip Lengkap
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card card-widget border-0 shadow-sm p-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="x-small text-muted d-block mb-1">IPS (Semester Ini)</span>
-                        <h2 class="fw-bold mb-0">{{ number_format($ipsData[Auth::user()->student->semester] ?? 0, 2) }}</h2>
-                    </div>
-                    <div class="widget-icon bg-success bg-opacity-10 border-0">
-                        <i class="fa-solid fa-graduation-cap text-success"></i>
-                    </div>
+
+            <!-- GPA Chart Card -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                    <h6 class="fw-bold mb-0">Grafik Perkembangan IPS</h6>
+                </div>
+                <div class="card-body p-4">
+                    <canvas id="ipsChart" height="200"></canvas>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div class="row">
-        <div class="col-lg-12">
-            @forelse($gradesGrouped as $semester => $semesterGrades)
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-white border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                        <h5 class="fw-bold mb-0">Semester {{ $semester }}</h5>
-                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3">IPS: {{ number_format($ipsData[$semester], 2) }}</span>
+        <!-- Grade List -->
+        <div class="col-lg-8">
+            <div id="gradesContainer">
+                @foreach($gradesGrouped as $sem => $grades)
+                    <div class="semester-section" id="sem-{{ $sem }}" style="{{ $sem == Auth::user()->student->semester ? '' : 'display:none;' }}">
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-3 px-4">
+                                <h5 class="fw-bold mb-0">Detail Nilai Semester {{ $sem }}</h5>
+                                <div class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
+                                    IPS: {{ number_format($ipsData[$sem] ?? 0, 2) }}
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="bg-light bg-opacity-50 small text-uppercase fw-bold">
+                                            <tr>
+                                                <th class="ps-4">Mata Kuliah</th>
+                                                <th class="text-center">SKS</th>
+                                                <th class="text-center">Tugas</th>
+                                                <th class="text-center">UTS</th>
+                                                <th class="text-center">UAS</th>
+                                                <th class="text-center">Akhir</th>
+                                                <th class="text-center pe-4">Huruf</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($grades as $grade)
+                                                @php
+                                                    $akhir = ($grade->tugas * 0.3) + ($grade->uts * 0.3) + ($grade->uas * 0.4);
+                                                    $huruf = 'E';
+                                                    $color = 'text-danger';
+                                                    if($akhir >= 80) { $huruf = 'A'; $color = 'text-success'; }
+                                                    elseif($akhir >= 70) { $huruf = 'B'; $color = 'text-primary'; }
+                                                    elseif($akhir >= 60) { $huruf = 'C'; $color = 'text-warning'; }
+                                                    elseif($akhir >= 50) { $huruf = 'D'; $color = 'text-secondary'; }
+                                                @endphp
+                                                <tr>
+                                                    <td class="ps-4">
+                                                        <span class="fw-bold d-block">{{ $grade->subject->name }}</span>
+                                                        <span class="text-muted x-small">Dosen: {{ $grade->subject->lecturer->user->name }}</span>
+                                                    </td>
+                                                    <td class="text-center">{{ $grade->subject->sks }}</td>
+                                                    <td class="text-center text-muted">{{ $grade->tugas }}</td>
+                                                    <td class="text-center text-muted">{{ $grade->uts }}</td>
+                                                    <td class="text-center text-muted">{{ $grade->uas }}</td>
+                                                    <td class="text-center fw-bold">{{ number_format($akhir, 1) }}</td>
+                                                    <td class="text-center pe-4">
+                                                        <span class="fw-bold {{ $color }}">{{ $huruf }}</span>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="bg-light bg-opacity-50">
-                                    <tr>
-                                        <th class="ps-4 border-0">Mata Kuliah</th>
-                                        <th class="text-center border-0">SKS</th>
-                                        <th class="text-center border-0">Tugas</th>
-                                        <th class="text-center border-0">UTS</th>
-                                        <th class="text-center border-0">UAS</th>
-                                        <th class="text-center border-0">Akhir</th>
-                                        <th class="text-center border-0 pe-4">Grade</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($semesterGrades as $grade)
-                                        @php
-                                            $final = ($grade->tugas * 0.3) + ($grade->uts * 0.3) + ($grade->uas * 0.4);
-                                            $letter = 'E';
-                                            $color = 'danger';
-                                            if ($final >= 80) { $letter = 'A'; $color = 'success'; }
-                                            elseif ($final >= 70) { $letter = 'B'; $color = 'primary'; }
-                                            elseif ($final >= 60) { $letter = 'C'; $color = 'info'; }
-                                            elseif ($final >= 50) { $letter = 'D'; $color = 'warning'; }
-                                        @endphp
-                                        <tr>
-                                            <td class="ps-4">
-                                                <span class="fw-semibold d-block">{{ $grade->subject->name }}</span>
-                                                <span class="text-muted small">Dosen: {{ $grade->subject->lecturer->user->name ?? '-' }}</span>
-                                            </td>
-                                            <td class="text-center">{{ $grade->subject->sks }}</td>
-                                            <td class="text-center">{{ $grade->tugas }}</td>
-                                            <td class="text-center">{{ $grade->uts }}</td>
-                                            <td class="text-center">{{ $grade->uas }}</td>
-                                            <td class="text-center">
-                                                <span class="fw-bold text-dark">{{ round($final, 1) }}</span>
-                                            </td>
-                                            <td class="text-center pe-4">
-                                                <span class="badge bg-{{ $color }} bg-opacity-10 text-{{ $color }} fs-6">{{ $letter }}</span>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                @endforeach
+
+                <!-- Transcript View (All Semesters) -->
+                <div class="semester-section" id="sem-transcript" style="display:none;">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white border-bottom py-3 px-4">
+                            <h5 class="fw-bold mb-0">Transkrip Nilai Keseluruhan (Semester 1 - {{ Auth::user()->student->semester }})</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            @foreach($gradesGrouped as $sem => $grades)
+                                <div class="px-4 py-2 bg-light border-bottom small fw-bold text-muted">SEMESTER {{ $sem }}</div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <tbody>
+                                            @foreach($grades as $grade)
+                                                @php
+                                                    $akhir = ($grade->tugas * 0.3) + ($grade->uts * 0.3) + ($grade->uas * 0.4);
+                                                    $huruf = 'E';
+                                                    if($akhir >= 80) $huruf = 'A';
+                                                    elseif($akhir >= 70) $huruf = 'B';
+                                                    elseif($akhir >= 60) $huruf = 'C';
+                                                    elseif($akhir >= 50) $huruf = 'D';
+                                                @endphp
+                                                <tr class="small">
+                                                    <td class="ps-4 w-50">{{ $grade->subject->name }}</td>
+                                                    <td class="text-center">{{ $grade->subject->sks }} SKS</td>
+                                                    <td class="text-center fw-bold pe-4 w-25">Indeks: {{ $huruf }} ({{ number_format($akhir, 1) }})</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 </div>
-            @empty
-                <div class="card border-0 shadow-sm p-5 text-center">
-                    <div class="mb-3">
-                        <i class="fa-solid fa-receipt fs-1 text-muted"></i>
-                    </div>
-                    <h5>Belum ada data nilai</h5>
-                    <p class="text-muted">Nilai akademik Anda akan tampil di sini setelah diinput oleh dosen.</p>
-                </div>
-            @endforelse
+            </div>
         </div>
     </div>
 </div>
 
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('ipsChart').getContext('2d');
+        const trendData = @json(array_values($trendData));
+        const labels = @json(array_keys($trendData));
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels.map(l => 'Sem ' + l),
+                datasets: [{
+                    label: 'IPS',
+                    data: trendData,
+                    borderColor: '#2a5298',
+                    backgroundColor: 'rgba(42, 82, 152, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#2a5298',
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 4.0,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+
+        // Semester Filter Logic
+        document.getElementById('semesterFilter').addEventListener('change', function() {
+            const val = this.value;
+            document.querySelectorAll('.semester-section').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            if(val === 'transcript') {
+                document.getElementById('sem-transcript').style.display = 'block';
+            } else {
+                document.getElementById(val).style.display = 'block';
+            }
+        });
+    });
+
+    function showTranscript() {
+        const filter = document.getElementById('semesterFilter');
+        filter.value = 'transcript';
+        filter.dispatchEvent(new Event('change'));
+    }
+</script>
 <style>
     .x-small { font-size: 0.75rem; }
+    .widget-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
 </style>
+@endpush
 @endsection

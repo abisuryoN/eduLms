@@ -58,8 +58,8 @@ class GradeController extends Controller
         $gradesGrouped = $this->gradeService->getStudentGrades($user->student->id);
         
         $ipsData = [];
-        $totalPoints = 0;
-        $totalSks = 0;
+        $totalPointsForAll = 0;
+        $totalSksForAll = 0;
 
         foreach ($gradesGrouped as $semester => $semesterGrades) {
             $ips = $this->gradeService->calculateGPA($semesterGrades);
@@ -67,19 +67,24 @@ class GradeController extends Controller
             
             foreach ($semesterGrades as $grade) {
                 $score = ($grade->tugas * 0.3) + ($grade->uts * 0.3) + ($grade->uas * 0.4);
-                $point = 0;
-                if ($score >= 80) $point = 4.0;
-                elseif ($score >= 70) $point = 3.0;
-                elseif ($score >= 60) $point = 2.0;
-                elseif ($score >= 50) $point = 1.0;
-                
-                $totalPoints += ($point * $grade->subject->sks);
-                $totalSks += $grade->subject->sks;
+                $point = $this->calculatePoint($score);
+                $totalPointsForAll += ($point * $grade->subject->sks);
+                $totalSksForAll += $grade->subject->sks;
             }
         }
 
-        $ipk = $totalSks > 0 ? round($totalPoints / $totalSks, 2) : 0;
+        $ipk = $totalSksForAll > 0 ? round($totalPointsForAll / $totalSksForAll, 2) : 0;
+        $trendData = $this->gradeService->getGPATrendData($user->student->id);
 
-        return view('dashboard.grade.history', compact('gradesGrouped', 'ipsData', 'ipk'));
+        return view('dashboard.grade.history', compact('gradesGrouped', 'ipsData', 'ipk', 'trendData'));
+    }
+
+    private function calculatePoint($score)
+    {
+        if ($score >= 80) return 4.0;
+        if ($score >= 70) return 3.0;
+        if ($score >= 60) return 2.0;
+        if ($score >= 50) return 1.0;
+        return 0;
     }
 }

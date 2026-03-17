@@ -17,14 +17,18 @@ class CourseController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $subjects = $this->classService->getStudentEnrolledSubjects($user->student->id);
+        if ($user->role->name === 'Dosen') {
+            return redirect()->route('lecturer.dashboard');
+        }
+
+        $subjects = $this->classService->getStudentEnrolledSubjects($user->student->id, $user->student->semester);
         return view('dashboard.matakuliah.index', compact('subjects'));
     }
 
     public function materiIndex()
     {
         $user = Auth::user();
-        $subjects = $this->classService->getStudentEnrolledSubjects($user->student->id);
+        $subjects = $this->classService->getStudentEnrolledSubjects($user->student->id, $user->student->semester);
         return view('dashboard.materi.index', compact('subjects'));
     }
 
@@ -42,7 +46,7 @@ class CourseController extends Controller
     public function tugasIndex()
     {
         $user = Auth::user();
-        $subjects = $this->classService->getStudentEnrolledSubjects($user->student->id);
+        $subjects = $this->classService->getStudentEnrolledSubjects($user->student->id, $user->student->semester);
         return view('dashboard.tugas.index', compact('subjects'));
     }
 

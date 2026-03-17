@@ -1,6 +1,6 @@
 /* public/css/dashboard.css */
 :root {
-    --sidebar-width: 260px;
+    --sidebar-width: 280px;
     --primary-color: #2a5298;
     --sidebar-bg: #1e3c72;
     --sidebar-hover: rgba(255, 255, 255, 0.1);
@@ -41,8 +41,8 @@ body {
 }
 
 #sidebar ul li a {
-    padding: 12px 20px;
-    font-size: 0.95rem;
+    padding: 15px 25px;
+    font-size: 1.1rem;
     display: block;
     color: rgba(255,255,255,0.8);
     text-decoration: none;

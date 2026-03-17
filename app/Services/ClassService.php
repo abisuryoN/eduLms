@@ -11,11 +11,17 @@ class ClassService
     /**
      * Get subjects where the student is enrolled.
      */
-    public function getStudentEnrolledSubjects(int $studentId)
+    public function getStudentEnrolledSubjects(int $studentId, int $semester = null)
     {
-        return Subject::whereHas('enrollments', function ($query) use ($studentId) {
+        $query = Subject::whereHas('enrollments', function ($query) use ($studentId) {
             $query->where('student_id', $studentId);
-        })->with('lecturer')->get();
+        });
+
+        if ($semester) {
+            $query->where('semester', $semester);
+        }
+
+        return $query->with('lecturer')->get();
     }
 
     /**

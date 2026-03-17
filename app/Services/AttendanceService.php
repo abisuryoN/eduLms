@@ -31,11 +31,17 @@ class AttendanceService
         })->with('user')->get();
     }
 
-    public function getStudentAttendanceSummary(int $studentId)
+    public function getStudentAttendanceSummary(int $studentId, int $semester = null)
     {
-        $subjects = Subject::whereHas('enrollments', function($q) use ($studentId) {
+        $query = Subject::whereHas('enrollments', function($q) use ($studentId) {
             $q->where('student_id', $studentId);
-        })->get();
+        });
+
+        if ($semester) {
+            $query->where('semester', $semester);
+        }
+
+        $subjects = $query->get();
 
         $summary = [];
         foreach ($subjects as $subject) {
