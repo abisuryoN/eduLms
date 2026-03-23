@@ -16,7 +16,8 @@ import ImportDosen from './pages/admin/ImportDosen'
 import ManajemenKelas from './pages/admin/ManajemenKelas'
 import JadwalAdmin from './pages/admin/Jadwal'
 import AssignMahasiswa from './pages/admin/AssignMahasiswa'
-import AdminNotifikasi from './pages/admin/Notifikasi' // NEW
+import AdminNotifikasi from './pages/admin/Notifikasi'
+import ManajemenSlider from './pages/admin/ManajemenSlider'
 
 // Dosen Pages
 import DosenDashboard from './pages/dosen/Dashboard'
@@ -57,6 +58,7 @@ const AppRoutes = () => {
           <Route path="/admin/jadwal" element={<JadwalAdmin />} />
           <Route path="/admin/assign-mahasiswa" element={<AssignMahasiswa />} />
           <Route path="/admin/notifikasi" element={<AdminNotifikasi />} />
+          <Route path="/admin/slider" element={<ManajemenSlider />} />
         </Route>
       </Route>
 

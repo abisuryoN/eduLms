@@ -3,80 +3,83 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Models\Student;
-use App\Models\Lecturer;
-use App\Models\Role;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManagerStatic as Image; // if using intervention, but keeping simple
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Exception;
 
 class AuthService
 {
-    public function registerStudent(array $data)
+    public function login(array $credentials)
     {
-        $role = Role::firstOrCreate(['name' => 'Mahasiswa']);
-        $password = date('dmY', strtotime($data['tanggal_lahir']));
-        $user = User::create([
-            'name' => $data['name'],
-            'username' => $data['nim'],
-            'password' => Hash::make($password),
-            'role_id' => $role->id,
-            'is_biodata_completed' => false,
-        ]);
+        $user = User::where('username', $credentials['username'])->first();
 
-        $fotoPath = null;
-        if (isset($data['foto'])) {
-            // Compress foto in a real app, storing locally for now
-            $fotoPath = $data['foto']->store('photos', 'public');
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            throw new Exception('Username atau password salah.', 401);
         }
 
-        Student::create([
-            'user_id' => $user->id,
-            'nim' => $data['nim'],
-            'tanggal_lahir' => $data['tanggal_lahir'],
-            'kelas' => $data['kelas'],
-            'semester' => $data['semester'],
-            'tahun_masuk' => $data['tahun_masuk'],
-            'foto' => $fotoPath,
-        ]);
-        return $user;
+        $token = $user->createToken('auth-token')->plainTextToken;
+
+        return [
+            'token' => $token,
+            'user'  => $this->formatUser($user),
+        ];
     }
 
-    public function registerLecturer(array $data)
+    public function logout(User $user)
     {
-        $role = Role::firstOrCreate(['name' => 'Dosen']);
-        $password = date('dmY', strtotime($data['tanggal_lahir']));
-        $user = User::create([
-            'name' => $data['name'],
-            'username' => $data['id_kerja'],
-            'password' => Hash::make($password),
-            'role_id' => $role->id,
-            'is_biodata_completed' => true, // Dosen might not need CV flow
-        ]);
-
-        Lecturer::create([
-            'user_id' => $user->id,
-            'id_kerja' => $data['id_kerja'],
-            'tanggal_lahir' => $data['tanggal_lahir'],
-            'fakultas' => $data['fakultas'],
-        ]);
-        return $user;
+        return $user->currentAccessToken()->delete();
     }
 
-    public function authenticate(array $data): bool
+    public function changePassword(User $user, array $data)
     {
-        $user = User::where('username', $data['username'])->first();
-
-        if ($user && Hash::check($data['password'], $user->password)) {
-            Auth::login($user);
-            return true;
+        if (!Hash::check($data['current_password'], $user->password)) {
+            throw new Exception('Password lama salah.', 422);
         }
-        return false;
+
+        return DB::transaction(function () use ($user, $data) {
+            return $user->update([
+                'password'       => Hash::make($data['new_password']),
+                'is_first_login' => false,
+            ]);
+        });
     }
 
-    public function logout()
+    public function formatUser(User $user): array
     {
-        Auth::logout();
+        $user->load(['mahasiswa.prodi.fakultas', 'dosen']);
+        
+        $data = [
+            'id'             => $user->id,
+            'name'           => $user->name,
+            'email'          => $user->email,
+            'username'       => $user->username,
+            'role'           => $user->role,
+            'avatar'         => $user->avatar ? url('uploads/profile/' . $user->avatar) : null,
+            'is_first_login' => $user->is_first_login,
+        ];
+
+        if ($user->isMahasiswa() && $user->mahasiswa) {
+            $data['mahasiswa'] = [
+                'id'            => $user->mahasiswa->id,
+                'nim'           => $user->mahasiswa->nim,
+                'semester'      => $user->mahasiswa->semester,
+                'prodi'         => $user->mahasiswa->prodi ? [
+                    'id'   => $user->mahasiswa->prodi->id,
+                    'nama' => $user->mahasiswa->prodi->nama,
+                    'fakultas' => $user->mahasiswa->prodi->fakultas?->nama,
+                ] : null,
+            ];
+        }
+
+        if ($user->isDosen() && $user->dosen) {
+            $data['dosen'] = [
+                'id'       => $user->dosen->id,
+                'id_kerja' => $user->dosen->id_kerja,
+                'keahlian' => $user->dosen->keahlian,
+            ];
+        }
+
+        return $data;
     }
 }

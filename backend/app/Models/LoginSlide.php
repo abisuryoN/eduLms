@@ -13,6 +13,7 @@ class LoginSlide extends Model
         'text',
         'author',
         'sub',
+        'image',
         'active',
         'order',
     ];
@@ -20,4 +21,11 @@ class LoginSlide extends Model
     protected $casts = [
         'active' => 'boolean',
     ];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return $this->image ? asset('storage/' . $this->image) : null;
+    }
 }

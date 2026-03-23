@@ -7,6 +7,7 @@ use App\Models\Dosen;
 use App\Models\Fakultas;
 use App\Models\Kelas;
 use App\Models\Mahasiswa;
+use App\Models\LoginSlide;
 use App\Models\MataKuliah;
 use App\Models\Prodi;
 use App\Services\DosenService;
@@ -15,6 +16,7 @@ use App\Services\KelasService;
 use App\Services\MahasiswaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -28,19 +30,6 @@ class AdminController extends Controller
     /* ══════════════════════════════════════════════
      *  IMPORT
      * ══════════════════════════════════════════════ */
-
-    public function importMahasiswa(Request $request): JsonResponse
-    {
-        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv']);
-
-        $result = $this->mahasiswaService->import($request->file('file'));
-
-        return response()->json([
-            'message'  => "Berhasil import {$result['imported']} mahasiswa.",
-            'imported' => $result['imported'],
-            'errors'   => $result['errors'],
-        ]);
-    }
 
     public function importDosen(Request $request): JsonResponse
     {

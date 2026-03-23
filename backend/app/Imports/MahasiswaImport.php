@@ -2,91 +2,40 @@
 
 namespace App\Imports;
 
-use App\Models\Mahasiswa;
-use App\Models\Prodi;
-use App\Models\User;
 use App\Services\NimGeneratorService;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Concerns\ToArray;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
 class MahasiswaImport implements ToArray, WithHeadingRow
 {
-    private int $importedCount = 0;
-    private array $errors = [];
+    private array $parsedRows = [];
 
     public function __construct(
         private NimGeneratorService $nimGenerator
     ) {}
 
+    /**
+     * Parse rows dari Excel — TIDAK insert ke DB.
+     * Semua logic insert/validasi dipindahkan ke MahasiswaImportService.
+     */
     public function array(array $rows): void
     {
         foreach ($rows as $index => $row) {
-            try {
-                $this->processRow($row, $index + 2); // +2 for header + 0-index
-            } catch (\Exception $e) {
-                $this->errors[] = "Baris " . ($index + 2) . ": " . $e->getMessage();
-            }
+            $this->parsedRows[] = [
+                'row_number' => $index + 2, // +2 karena header + zero-index
+                'data'       => [
+                    'nama'          => trim($row['nama'] ?? ''),
+                    'tanggal_lahir' => trim($row['tanggal_lahir'] ?? ''),
+                    'tanggal_masuk' => trim($row['tanggal_masuk'] ?? ''),
+                    'email'         => trim($row['email'] ?? ''),
+                    'kode_prodi'    => trim($row['kode_prodi'] ?? ''),
+                ],
+            ];
         }
     }
 
-    private function processRow(array $row, int $rowNumber): void
+    public function getParsedRows(): array
     {
-        // Validate required fields
-        $required = ['nama', 'tanggal_lahir', 'tanggal_masuk', 'email', 'kode_prodi'];
-        foreach ($required as $field) {
-            if (empty($row[$field])) {
-                throw new \Exception("Kolom '{$field}' wajib diisi.");
-            }
-        }
-
-        // Find prodi by kode
-        $prodi = Prodi::where('kode', $row['kode_prodi'])->first();
-        if (!$prodi) {
-            throw new \Exception("Kode prodi '{$row['kode_prodi']}' tidak ditemukan.");
-        }
-
-        // Check email unique
-        if (User::where('email', $row['email'])->exists()) {
-            throw new \Exception("Email '{$row['email']}' sudah terdaftar.");
-        }
-
-        DB::transaction(function () use ($row, $prodi) {
-            $tglLahir = Carbon::parse($row['tanggal_lahir']);
-            $tglMasuk = Carbon::parse($row['tanggal_masuk']);
-
-            $nim = $this->nimGenerator->generate($tglMasuk->year, $prodi->id);
-
-            $user = User::create([
-                'name'           => $row['nama'],
-                'email'          => $row['email'],
-                'username'       => $nim,
-                'password'       => Hash::make($tglLahir->format('dmY')),
-                'role'           => 'mahasiswa',
-                'is_first_login' => true,
-            ]);
-
-            Mahasiswa::create([
-                'user_id'       => $user->id,
-                'prodi_id'      => $prodi->id,
-                'nim'           => $nim,
-                'tanggal_lahir' => $tglLahir,
-                'tanggal_masuk' => $tglMasuk,
-            ]);
-        });
-
-        $this->importedCount++;
-    }
-
-    public function getImportedCount(): int
-    {
-        return $this->importedCount;
-    }
-
-    public function getErrors(): array
-    {
-        return $this->errors;
+        return $this->parsedRows;
     }
 }

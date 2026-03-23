@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\DosenController;
+use App\Http\Controllers\Api\ImportMahasiswaController;
+use App\Http\Controllers\Api\LoginSlideController;
 use App\Http\Controllers\Api\MahasiswaController;
 use App\Http\Controllers\Api\ProfileController;
 
@@ -16,6 +18,7 @@ use App\Http\Controllers\Api\ProfileController;
 
 // ── Public ───────────────────────────────────────
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/login-slides', [LoginSlideController::class, 'index']);
 
 // ── Authenticated ────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
@@ -42,8 +45,9 @@ Route::middleware('auth:sanctum')->group(function () {
             ->group(function () {
                 Route::get('/dashboard', [AdminController::class, 'dashboard']);
 
-                // Import
-                Route::post('/import-mahasiswa', [AdminController::class, 'importMahasiswa']);
+                // Import Mahasiswa (dedicated controller)
+                Route::post('/import-mahasiswa/preview', [ImportMahasiswaController::class, 'preview']);
+                Route::post('/import-mahasiswa', [ImportMahasiswaController::class, 'import']);
                 Route::post('/import-dosen', [AdminController::class, 'importDosen']);
 
                 // Reference data
@@ -72,6 +76,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/jadwal', [AdminController::class, 'jadwalStore']);
                 Route::put('/jadwal/{jadwal}', [AdminController::class, 'jadwalUpdate']);
                 Route::delete('/jadwal/{jadwal}', [AdminController::class, 'jadwalDestroy']);
+
+                // Login Slides
+                Route::get('/login-slides', [LoginSlideController::class, 'adminIndex']);
+                Route::post('/login-slides', [LoginSlideController::class, 'store']);
+                Route::put('/login-slides/{loginSlide}', [LoginSlideController::class, 'update']);
+                Route::delete('/login-slides/{loginSlide}', [LoginSlideController::class, 'destroy']);
             });
 
         // ══════════════════════════════════════════

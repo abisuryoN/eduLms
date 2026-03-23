@@ -26,6 +26,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: 'Manajemen Kelas', path: '/admin/manajemen-kelas', icon: BookOpen },
     { name: 'Jadwal Kuliah', path: '/admin/jadwal', icon: Calendar },
     { name: 'Assign Mahasiswa', path: '/admin/assign-mahasiswa', icon: Users },
+    { name: 'Slider Login', path: '/admin/slider', icon: LayoutDashboard },
     { name: 'Kelola Notifikasi', path: '/admin/notifikasi', icon: Bell },
   ]
 
