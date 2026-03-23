@@ -11,6 +11,7 @@ use App\Models\LoginSlide;
 use App\Models\MataKuliah;
 use App\Models\Prodi;
 use App\Services\DosenService;
+use App\Services\DosenImportService;
 use App\Services\JadwalService;
 use App\Services\KelasService;
 use App\Services\MahasiswaService;
@@ -23,6 +24,7 @@ class AdminController extends Controller
     public function __construct(
         private MahasiswaService $mahasiswaService,
         private DosenService     $dosenService,
+        private DosenImportService $dosenImportService,
         private KelasService     $kelasService,
         private JadwalService    $jadwalService,
     ) {}
@@ -31,16 +33,24 @@ class AdminController extends Controller
      *  IMPORT
      * ══════════════════════════════════════════════ */
 
-    public function importDosen(Request $request): JsonResponse
+    public function importDosen(\App\Http\Requests\Admin\ImportDosenRequest $request): JsonResponse
     {
-        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv']);
+        $result = $this->dosenImportService->import($request->file('file'));
 
-        $result = $this->dosenService->import($request->file('file'));
+        if (!$result['success']) {
+            return response()->json([
+                'message' => $result['message'],
+                'errors'  => $result['errors'] ?? []
+            ], 422);
+        }
+
+        if (!empty($result['partial'])) {
+            return response()->json($result, 207);
+        }
 
         return response()->json([
-            'message'  => "Berhasil import {$result['imported']} dosen.",
-            'imported' => $result['imported'],
-            'errors'   => $result['errors'],
+            'message'  => $result['message'],
+            'imported' => $result['total'] ?? $result['data_berhasil'],
         ]);
     }
 
@@ -48,9 +58,19 @@ class AdminController extends Controller
      *  MATA KULIAH
      * ══════════════════════════════════════════════ */
 
-    public function mataKuliahIndex(): JsonResponse
+    public function mataKuliahIndex(Request $request): JsonResponse
     {
-        return response()->json(MataKuliah::orderBy('nama')->get());
+        $query = MataKuliah::query();
+        
+        if ($request->has('prodi_id')) {
+            $query->where('prodi_id', $request->prodi_id);
+        }
+        
+        if ($request->has('semester')) {
+            $query->where('semester', $request->semester);
+        }
+
+        return response()->json($query->orderBy('nama')->get());
     }
 
     public function mataKuliahStore(Request $request): JsonResponse
@@ -86,13 +106,22 @@ class AdminController extends Controller
         return response()->json(['message' => 'Mata kuliah dihapus.']);
     }
 
+    public function referensiOptions(): JsonResponse
+    {
+        return response()->json([
+            'fakultas'     => Fakultas::select('id', 'kode', 'nama')->orderBy('kode')->get(),
+            'tahun_ajaran' => ['2023/2024', '2024/2025', '2025/2026'],
+            'semester'     => ['1', '2', '3', '4', '5', '6', '7', '8'],
+        ]);
+    }
+
     /* ══════════════════════════════════════════════
      *  KELAS
      * ══════════════════════════════════════════════ */
 
     public function kelasIndex(Request $request): JsonResponse
     {
-        $query = Kelas::with(['mataKuliah', 'dosen.user']);
+        $query = Kelas::with(['mataKuliah', 'dosen.user', 'dosenPA.user', 'prodi.fakultas']);
 
         if ($request->has('semester')) {
             $query->where('semester', $request->semester);
@@ -104,30 +133,18 @@ class AdminController extends Controller
         return response()->json($query->orderByDesc('id')->paginate(20));
     }
 
-    public function kelasStore(Request $request): JsonResponse
+    public function kelasStore(\App\Http\Requests\Admin\StoreKelasRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'mata_kuliah_id' => 'required|exists:mata_kuliah,id',
-            'dosen_id'       => 'required|exists:dosen,id',
-            'nama_kelas'     => 'required|string|max:10',
-            'semester'       => 'required|string',
-            'tahun_ajaran'   => 'required|string',
-        ]);
+        $data = $request->validated();
 
         $kelas = $this->kelasService->create($data);
 
-        return response()->json($kelas->load(['mataKuliah', 'dosen.user']), 201);
+        return response()->json($kelas->load(['mataKuliah', 'dosen.user', 'dosenPA.user', 'prodi.fakultas']), 201);
     }
 
-    public function kelasUpdate(Request $request, Kelas $kelas): JsonResponse
+    public function kelasUpdate(\App\Http\Requests\Admin\UpdateKelasRequest $request, Kelas $kelas): JsonResponse
     {
-        $data = $request->validate([
-            'mata_kuliah_id' => 'sometimes|exists:mata_kuliah,id',
-            'dosen_id'       => 'sometimes|exists:dosen,id',
-            'nama_kelas'     => 'sometimes|string|max:10',
-            'semester'       => 'sometimes|string',
-            'tahun_ajaran'   => 'sometimes|string',
-        ]);
+        $data = $request->validated();
 
         $kelas = $this->kelasService->update($kelas, $data);
 
@@ -295,4 +312,39 @@ class AdminController extends Controller
             'total_prodi'     => Prodi::count(),
         ]);
     }
+
+    /* ══════════════════════════════════════════════
+     *  ASSIGNMENT DOSEN (PENGAJAR & PA)
+     * ══════════════════════════════════════════════ */
+
+    public function assignPengajar(\App\Http\Requests\Admin\AssignPengajarRequest $request, \App\Services\AssignmentService $service): JsonResponse
+    {
+        $data = $request->validated();
+        $result = $service->assignPengajar($data['dosen_id'], $data['mata_kuliah_id'], $data['kelas_ids']);
+        
+        $status = $result['success'] ? 200 : 422;
+        return response()->json($result, $status);
+    }
+
+    public function removePengajar($id, \App\Services\AssignmentService $service): JsonResponse
+    {
+        $success = $service->removePengajar($id);
+        return response()->json(['success' => $success, 'message' => $success ? 'Berhasil menghapus.' : 'Gagal menghapus.']);
+    }
+
+    public function assignPA(\App\Http\Requests\Admin\AssignPARequest $request, \App\Services\AssignmentService $service): JsonResponse
+    {
+        $data = $request->validated();
+        $result = $service->assignPA($data['dosen_id'], $data['kelas_ids']);
+
+        $status = $result['success'] ? 200 : 422;
+        return response()->json($result, $status);
+    }
+
+    public function removePA($id, \App\Services\AssignmentService $service): JsonResponse
+    {
+        $success = $service->removePA($id);
+        return response()->json(['success' => $success, 'message' => $success ? 'Berhasil menghapus.' : 'Gagal menghapus.']);
+    }
 }
+

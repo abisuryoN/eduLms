@@ -110,11 +110,11 @@ const ImportDosen = () => {
       {result && (
         <div className="space-y-4">
           {result.imported > 0 && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-900/30 p-4 flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5" />
               <div>
-                <h3 className="text-sm font-medium text-emerald-800">Import Berhasil</h3>
-                <p className="mt-1 text-sm text-emerald-700">
+                <h3 className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Import Berhasil</h3>
+                <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
                   {result.imported} data dosen berhasil ditambahkan ke database.
                 </p>
               </div>
@@ -122,25 +122,34 @@ const ImportDosen = () => {
           )}
 
           {result.errors && result.errors.length > 0 && (
-            <Card className="border-red-200">
-              <CardHeader className="bg-red-50/50 border-red-100">
-                <CardTitle className="text-red-800 flex items-center gap-2">
+            <Card className="border-red-200 dark:border-red-900">
+              <CardHeader className="bg-red-50/50 dark:bg-red-900/20 border-red-100 dark:border-red-800">
+                <CardTitle className="text-red-800 dark:text-red-200 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5" />
                   Gagal Mengimport {result.errors.length} Baris
                 </CardTitle>
               </CardHeader>
-              <CardContent className="max-h-96 overflow-y-auto bg-white p-0">
-                <ul className="divide-y divide-gray-100">
-                  {result.errors.map((err, idx) => (
-                    <li key={idx} className="p-4 flex gap-4 text-sm">
-                      <span className="font-medium text-gray-500 w-16 shrink-0">Baris {err.row}</span>
-                      <div className="text-red-600">
-                        {err.errors.map((msg, i) => (
-                          <div key={i}>{msg}</div>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
+              <CardContent className="max-h-96 overflow-y-auto bg-white dark:bg-gray-900 p-0">
+                <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {result.errors.map((err, idx) => {
+                    if (typeof err === 'string') {
+                      return (
+                        <li key={idx} className="p-4 flex gap-4 text-sm">
+                          <div className="text-red-600 dark:text-red-400 w-full">{err}</div>
+                        </li>
+                      )
+                    }
+                    return (
+                      <li key={idx} className="p-4 flex gap-4 text-sm">
+                        <span className="font-medium text-gray-500 dark:text-gray-400 w-16 shrink-0">Baris {err.row || idx+1}</span>
+                        <div className="text-red-600 dark:text-red-400">
+                          {Array.isArray(err.errors) ? err.errors.map((msg, i) => (
+                            <div key={i}>{msg}</div>
+                          )) : err.message || JSON.stringify(err)}
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ul>
               </CardContent>
             </Card>

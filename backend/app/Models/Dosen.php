@@ -9,7 +9,7 @@ class Dosen extends Model
     protected $table = 'dosen';
 
     protected $fillable = [
-        'user_id', 'id_kerja', 'tanggal_lahir', 'no_hp', 'alamat', 'keahlian',
+        'user_id', 'prodi_id', 'id_kerja', 'tanggal_lahir', 'no_hp', 'alamat', 'keahlian',
     ];
 
     protected function casts(): array
@@ -28,4 +28,15 @@ class Dosen extends Model
     {
         return $this->hasMany(Kelas::class);
     }
+
+    public function teachingAssignments()
+    {
+        return $this->hasMany(TeachingAssignment::class);
+    }
+
+    public function pembimbingAkademik()
+    {
+        return $this->hasMany(PembimbingAkademik::class);
+    }
 }
+

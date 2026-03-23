@@ -14,6 +14,7 @@ import {
   Bell,
   MessageSquare
 } from 'lucide-react'
+import { Avatar } from '../ui/Avatar'
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const { user, logout } = useAuth()
@@ -23,9 +24,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Import Mahasiswa', path: '/admin/import-mahasiswa', icon: Users },
     { name: 'Import Dosen', path: '/admin/import-dosen', icon: UserCheck },
+    { name: 'Mata Kuliah', path: '/admin/mata-kuliah', icon: BookOpen },
     { name: 'Manajemen Kelas', path: '/admin/manajemen-kelas', icon: BookOpen },
     { name: 'Jadwal Kuliah', path: '/admin/jadwal', icon: Calendar },
     { name: 'Assign Mahasiswa', path: '/admin/assign-mahasiswa', icon: Users },
+    { name: 'Assign Dosen', path: '/admin/assign-dosen', icon: UserCheck },
     { name: 'Slider Login', path: '/admin/slider', icon: LayoutDashboard },
     { name: 'Kelola Notifikasi', path: '/admin/notifikasi', icon: Bell },
   ]
@@ -85,13 +88,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           {/* User Info (Mobile only) */}
           <div className="lg:hidden px-6 py-4 border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 shrink-0 rounded-full bg-brand-100 dark:bg-brand-900/50 flex items-center justify-center text-brand-600 dark:text-brand-400 font-bold overflow-hidden">
-                {user?.avatar ? (
-                  <img src={user.avatar} alt="Avatar" className="h-full w-full object-cover" />
-                ) : (
-                  user?.name?.charAt(0)
-                )}
-              </div>
+              <Avatar 
+                src={user?.avatar} 
+                name={user?.name} 
+                size="md" 
+                className="ring-2 ring-brand-100 dark:ring-brand-900/50" 
+              />
               <div className="flex flex-col min-w-0">
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                   {user?.name}

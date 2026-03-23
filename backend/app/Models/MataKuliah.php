@@ -8,7 +8,12 @@ class MataKuliah extends Model
 {
     protected $table = 'mata_kuliah';
 
-    protected $fillable = ['kode', 'nama', 'sks', 'semester', 'deskripsi'];
+    protected $fillable = ['prodi_id', 'kode', 'nama', 'sks', 'semester', 'deskripsi'];
+
+    public function prodi()
+    {
+        return $this->belongsTo(Prodi::class);
+    }
 
     public function kelas()
     {

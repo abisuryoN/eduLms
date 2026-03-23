@@ -51,16 +51,14 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/import-dosen', [AdminController::class, 'importDosen']);
 
                 // Reference data
-                Route::get('/fakultas', [AdminController::class, 'fakultasList']);
-                Route::get('/prodi', [AdminController::class, 'prodiList']);
+                Route::get('/referensi/options', [AdminController::class, 'referensiOptions']);
                 Route::get('/mahasiswa', [AdminController::class, 'mahasiswaList']);
                 Route::get('/dosen', [AdminController::class, 'dosenList']);
 
-                // Mata Kuliah
-                Route::get('/mata-kuliah', [AdminController::class, 'mataKuliahIndex']);
-                Route::post('/mata-kuliah', [AdminController::class, 'mataKuliahStore']);
-                Route::put('/mata-kuliah/{mataKuliah}', [AdminController::class, 'mataKuliahUpdate']);
-                Route::delete('/mata-kuliah/{mataKuliah}', [AdminController::class, 'mataKuliahDestroy']);
+                // Master Data Management
+                Route::apiResource('fakultas', \App\Http\Controllers\Api\FakultasController::class);
+                Route::apiResource('prodi', \App\Http\Controllers\Api\ProdiController::class);
+                Route::apiResource('mata-kuliah', \App\Http\Controllers\Api\MataKuliahController::class);
 
                 // Kelas
                 Route::get('/kelas', [AdminController::class, 'kelasIndex']);
@@ -70,6 +68,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::delete('/kelas/{kelas}', [AdminController::class, 'kelasDestroy']);
                 Route::post('/kelas/{kelas}/assign-mahasiswa', [AdminController::class, 'assignMahasiswa']);
                 Route::post('/kelas/{kelas}/remove-mahasiswa', [AdminController::class, 'removeMahasiswa']);
+
+                // Assignment Dosen
+                Route::post('/assign-pengajar', [AdminController::class, 'assignPengajar']);
+                Route::delete('/assign-pengajar/{id}', [AdminController::class, 'removePengajar']);
+                Route::post('/assign-pa', [AdminController::class, 'assignPA']);
+                Route::delete('/assign-pa/{id}', [AdminController::class, 'removePA']);
 
                 // Jadwal
                 Route::get('/jadwal', [AdminController::class, 'jadwalIndex']);

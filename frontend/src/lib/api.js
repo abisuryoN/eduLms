@@ -1,12 +1,12 @@
-import axios from 'axios'
+import axios from "axios";
 
-// Create instance
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: "http://localhost:8000/api",
+
   headers: {
-    'Accept': 'application/json',
+    "Accept": "application/json",
   },
-})
+});
 
 // Request interceptor to add auth token + auto Content-Type
 api.interceptors.request.use((config) => {
@@ -32,7 +32,7 @@ api.interceptors.response.use(
         localStorage.removeItem('token')
         window.location.href = '/login'
       }
-      
+
       if (error.response.status === 403 && error.response.data?.must_change_password) {
         window.location.href = '/change-password'
       }

@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { Link } from 'react-router-dom'
 import { Bell, Menu, UserCircle, LogOut, Settings, Sun, Moon } from 'lucide-react'
 import api from '../../lib/api'
+import { Avatar } from '../ui/Avatar'
 
 const Navbar = ({ toggleSidebar }) => {
   const { user, logout } = useAuth()
@@ -163,18 +164,15 @@ const Navbar = ({ toggleSidebar }) => {
                 setDropdownOpen(!dropdownOpen)
                 setNotifOpen(false)
               }}
-              className="-m-1.5 flex items-center p-1.5 gap-x-2 rounded-full hover:bg-gray-50 transition-all"
+              className="-m-1.5 flex items-center p-1.5 gap-x-2 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
             >
               <span className="sr-only">Open user menu</span>
-              <div className="h-9 w-9 overflow-hidden rounded-full bg-brand-100 flex items-center justify-center border-2 border-white shadow-sm ring-1 ring-gray-200">
-                {user?.avatar ? (
-                  <img src={user.avatar} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-brand-700 font-bold text-sm">
-                    {user?.name?.charAt(0)}
-                  </span>
-                )}
-              </div>
+              <Avatar 
+                src={user?.avatar} 
+                name={user?.name} 
+                size="sm" 
+                className="h-9 w-9 border-2 border-white dark:border-gray-900 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700" 
+              />
               <span className="hidden lg:flex lg:items-center">
                 <span className="text-sm font-medium leading-6 text-gray-900 ml-2" aria-hidden="true">
                   {user?.name}

@@ -9,7 +9,7 @@ class Kelas extends Model
     protected $table = 'kelas';
 
     protected $fillable = [
-        'mata_kuliah_id', 'dosen_id', 'nama_kelas', 'semester', 'tahun_ajaran',
+        'mata_kuliah_id', 'dosen_id', 'dosen_pa_id', 'prodi_id', 'fakultas_id', 'nama_kelas', 'semester', 'tahun_ajaran',
     ];
 
     public function mataKuliah()
@@ -19,7 +19,22 @@ class Kelas extends Model
 
     public function dosen()
     {
-        return $this->belongsTo(Dosen::class);
+        return $this->belongsTo(Dosen::class, 'dosen_id');
+    }
+
+    public function dosenPA()
+    {
+        return $this->belongsTo(Dosen::class, 'dosen_pa_id');
+    }
+
+    public function prodi()
+    {
+        return $this->belongsTo(Prodi::class);
+    }
+
+    public function fakultas()
+    {
+        return $this->belongsTo(Fakultas::class);
     }
 
     public function mahasiswa()
@@ -60,5 +75,15 @@ class Kelas extends Model
     public function notifikasi()
     {
         return $this->hasMany(Notifikasi::class);
+    }
+
+    public function teachingAssignments()
+    {
+        return $this->hasMany(TeachingAssignment::class);
+    }
+
+    public function pembimbingAkademik()
+    {
+        return $this->hasOne(PembimbingAkademik::class);
     }
 }

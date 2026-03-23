@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../lib/api'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { useCaptcha, CaptchaCanvas } from '../components/ui/Captcha'
 
 const Login = () => {
     const { user, login } = useAuth()
@@ -20,8 +21,8 @@ const Login = () => {
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
 
-    // Math Captcha state
-    const [captcha, setCaptcha] = useState({ num1: 0, num2: 0, operator: '+', result: 0 })
+    // Captcha state
+    const { canvasRef, captchaText, reloadCaptcha } = useCaptcha()
     const [captchaInput, setCaptchaInput] = useState('')
 
     // UI state
@@ -62,25 +63,6 @@ const Login = () => {
         fetchQuotes()
     }, [])
 
-    const generateCaptcha = () => {
-        const num1 = Math.floor(Math.random() * 20) + 1
-        const num2 = Math.floor(Math.random() * 20) + 1
-        const operator = Math.random() > 0.5 ? '+' : '-'
-
-        let n1 = num1, n2 = num2
-        if (operator === '-' && n1 < n2) {
-            [n1, n2] = [n2, n1]
-        }
-
-        const result = operator === '+' ? n1 + n2 : n1 - n2
-        setCaptcha({ num1: n1, num2: n2, operator, result })
-        setCaptchaInput('')
-    }
-
-    useEffect(() => {
-        generateCaptcha()
-    }, [])
-
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentQuote((prev) => (prev + 1) % quotes.length)
@@ -97,9 +79,10 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        if (parseInt(captchaInput) !== captcha.result) {
+        if (captchaInput.toLowerCase() !== captchaText.toLowerCase()) {
             toast.error('Jawaban captcha salah. Silakan coba lagi.')
-            generateCaptcha()
+            reloadCaptcha()
+            setCaptchaInput('')
             return
         }
 
@@ -132,7 +115,8 @@ const Login = () => {
             }
         } catch (error) {
             toast.error(error.response?.data?.message || 'Gagal login, periksa kembali data Anda')
-            generateCaptcha()
+            reloadCaptcha()
+            setCaptchaInput('')
         } finally {
             setIsLoading(false)
         }
@@ -216,16 +200,21 @@ const Login = () => {
 
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 ml-1 uppercase tracking-wider">Verifikasi Keamanan</label>
-                            <div className="overflow-hidden rounded-2xl border border-brand-100 dark:border-gray-800 shadow-sm transition-all focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-transparent">
-                                <div className="bg-brand-600 dark:bg-brand-700 py-4 text-center text-white font-mono text-xl tracking-[0.2em] font-black italic select-none">
-                                    {captcha.num1} {captcha.operator} {captcha.num2} = ?
-                                </div>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <CaptchaCanvas 
+                                    canvasRef={canvasRef} 
+                                    onReload={() => {
+                                        reloadCaptcha();
+                                        setCaptchaInput('');
+                                    }} 
+                                    className="shrink-0"
+                                />
                                 <input
-                                    type="number"
+                                    type="text"
                                     value={captchaInput}
                                     onChange={(e) => setCaptchaInput(e.target.value)}
-                                    placeholder="Hasil jawaban"
-                                    className="w-full text-center py-4 px-4 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 border-none focus:ring-0 placeholder-gray-400 outline-none text-lg font-bold"
+                                    placeholder="Ketik teks di samping"
+                                    className="w-full py-2.5 px-4 rounded-xl text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400"
                                     required
                                 />
                             </div>

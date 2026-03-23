@@ -13,15 +13,15 @@ export const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-md' 
       />
 
       {/* Modal Dialog */}
-      <div className={`relative w-full ${maxWidth} transform overflow-hidden rounded-2xl bg-white text-left align-middle shadow-xl transition-all`}>
+      <div className={`relative w-full ${maxWidth} transform overflow-hidden rounded-2xl bg-white dark:bg-gray-900 text-left align-middle shadow-xl transition-all`}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <h3 className="text-lg font-semibold leading-6 text-gray-900">
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-6 py-4 bg-white dark:bg-gray-900/50">
+          <h3 className="text-lg font-semibold leading-6 text-gray-900 dark:text-white">
             {title}
           </h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none transition-colors"
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
