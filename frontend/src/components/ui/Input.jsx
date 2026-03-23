@@ -20,9 +20,9 @@ export const Input = React.forwardRef(({
         <input
           id={inputId}
           ref={ref}
-          className={`block w-full rounded-xl border-0 py-2 text-gray-900 shadow-sm ring-1 ring-inset ${
-            error ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 focus:ring-brand-600'
-          } placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 transition-colors`}
+          className={`block w-full rounded-xl border-0 py-2 px-4 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ${
+            error ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 dark:ring-gray-700 focus:ring-brand-600'
+          } placeholder:text-gray-400 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 transition-colors bg-white dark:bg-gray-800`}
           {...props}
         />
       </div>

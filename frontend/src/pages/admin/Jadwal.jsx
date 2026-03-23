@@ -193,7 +193,7 @@ const JadwalAdmin = () => {
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Kelas / Matkul</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Dosen</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Lokasi</th>
-                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">Aksi</th>
+                <th scope="col" className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-gray-100 w-32">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
@@ -226,7 +226,7 @@ const JadwalAdmin = () => {
                         {formatRoom(jadwal.gedung, jadwal.lantai, jadwal.ruangan)}
                       </div>
                     </td>
-                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-2">
+                    <td className="whitespace-nowrap px-3 py-4 text-center text-sm font-medium space-x-2">
                       <Button variant="secondary" size="sm" onClick={() => handleOpenModal('edit', jadwal)}>
                         <Edit2 className="w-4 h-4 text-brand-600" />
                       </Button>

@@ -192,7 +192,7 @@ const ManajemenKelas = () => {
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Dosen Pengajar</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Dosen PA</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Tahun/Sem</th>
-                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">Aksi</th>
+                <th scope="col" className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-gray-100 w-48">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
@@ -228,7 +228,7 @@ const ManajemenKelas = () => {
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                       {kelas.tahun_ajaran} (Sem {kelas.semester})
                     </td>
-                    <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6 space-x-2">
+                    <td className="whitespace-nowrap px-3 py-4 text-center text-sm font-medium space-x-2">
                       <Link to={`/admin/assign-mahasiswa?kelas_id=${kelas.id}`}>
                         <Button variant="secondary" size="sm" title="Assign Mahasiswa">
                           <Users className="w-4 h-4" />
