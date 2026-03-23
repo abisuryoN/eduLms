@@ -1,0 +1,137 @@
+<?php
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\DosenController;
+use App\Http\Controllers\Api\MahasiswaController;
+use App\Http\Controllers\Api\ProfileController;
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
+
+// ── Public ───────────────────────────────────────
+Route::post('/login', [AuthController::class, 'login']);
+
+// ── Authenticated ────────────────────────────────
+Route::middleware('auth:sanctum')->group(function () {
+
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
+
+    // All routes below require first-login check
+    Route::middleware(\App\Http\Middleware\FirstLoginMiddleware::class)->group(function () {
+
+        // ── Profile & Notifikasi (all roles) ─────
+        Route::put('/profile', [ProfileController::class, 'update']);
+        Route::post('/profile/photo', [ProfileController::class, 'uploadPhoto']);
+        Route::get('/notifikasi', [ProfileController::class, 'notifikasi']);
+        Route::post('/notifikasi/{id}/read', [ProfileController::class, 'markNotifikasiRead']);
+        Route::post('/notifikasi/read-all', [ProfileController::class, 'markAllNotifikasiRead']);
+
+        // ══════════════════════════════════════════
+        //  ADMIN ROUTES
+        // ══════════════════════════════════════════
+        Route::middleware(\App\Http\Middleware\RoleMiddleware::class . ':admin')
+            ->prefix('admin')
+            ->group(function () {
+                Route::get('/dashboard', [AdminController::class, 'dashboard']);
+
+                // Import
+                Route::post('/import-mahasiswa', [AdminController::class, 'importMahasiswa']);
+                Route::post('/import-dosen', [AdminController::class, 'importDosen']);
+
+                // Reference data
+                Route::get('/fakultas', [AdminController::class, 'fakultasList']);
+                Route::get('/prodi', [AdminController::class, 'prodiList']);
+                Route::get('/mahasiswa', [AdminController::class, 'mahasiswaList']);
+                Route::get('/dosen', [AdminController::class, 'dosenList']);
+
+                // Mata Kuliah
+                Route::get('/mata-kuliah', [AdminController::class, 'mataKuliahIndex']);
+                Route::post('/mata-kuliah', [AdminController::class, 'mataKuliahStore']);
+                Route::put('/mata-kuliah/{mataKuliah}', [AdminController::class, 'mataKuliahUpdate']);
+                Route::delete('/mata-kuliah/{mataKuliah}', [AdminController::class, 'mataKuliahDestroy']);
+
+                // Kelas
+                Route::get('/kelas', [AdminController::class, 'kelasIndex']);
+                Route::post('/kelas', [AdminController::class, 'kelasStore']);
+                Route::get('/kelas/{kelas}', [AdminController::class, 'kelasShow']);
+                Route::put('/kelas/{kelas}', [AdminController::class, 'kelasUpdate']);
+                Route::delete('/kelas/{kelas}', [AdminController::class, 'kelasDestroy']);
+                Route::post('/kelas/{kelas}/assign-mahasiswa', [AdminController::class, 'assignMahasiswa']);
+                Route::post('/kelas/{kelas}/remove-mahasiswa', [AdminController::class, 'removeMahasiswa']);
+
+                // Jadwal
+                Route::get('/jadwal', [AdminController::class, 'jadwalIndex']);
+                Route::post('/jadwal', [AdminController::class, 'jadwalStore']);
+                Route::put('/jadwal/{jadwal}', [AdminController::class, 'jadwalUpdate']);
+                Route::delete('/jadwal/{jadwal}', [AdminController::class, 'jadwalDestroy']);
+            });
+
+        // ══════════════════════════════════════════
+        //  DOSEN ROUTES
+        // ══════════════════════════════════════════
+        Route::middleware(\App\Http\Middleware\RoleMiddleware::class . ':dosen')
+            ->prefix('dosen')
+            ->group(function () {
+                Route::get('/jadwal-hari-ini', [DosenController::class, 'jadwalHariIni']);
+                Route::get('/kelas', [DosenController::class, 'kelasList']);
+                Route::get('/kelas/{kelas}/mahasiswa', [DosenController::class, 'kelasMahasiswa']);
+
+                // Absensi
+                Route::post('/kelas/{kelas}/absensi', [DosenController::class, 'submitAbsensi']);
+                Route::get('/kelas/{kelas}/absensi', [DosenController::class, 'getAbsensiKelas']);
+
+                // Materi
+                Route::get('/kelas/{kelas}/materi', [DosenController::class, 'materiIndex']);
+                Route::post('/kelas/{kelas}/materi', [DosenController::class, 'materiStore']);
+                Route::put('/kelas/{kelas}/materi/{materi}', [DosenController::class, 'materiUpdate']);
+                Route::delete('/kelas/{kelas}/materi/{materi}', [DosenController::class, 'materiDestroy']);
+
+                // Quiz
+                Route::get('/kelas/{kelas}/quiz', [DosenController::class, 'quizIndex']);
+                Route::post('/kelas/{kelas}/quiz', [DosenController::class, 'quizStore']);
+                Route::put('/kelas/{kelas}/quiz/{quiz}', [DosenController::class, 'quizUpdate']);
+
+                // Nilai
+                Route::get('/kelas/{kelas}/nilai', [DosenController::class, 'nilaiIndex']);
+                Route::post('/kelas/{kelas}/nilai', [DosenController::class, 'nilaiStore']);
+
+                // Notifikasi
+                Route::post('/kelas/{kelas}/notifikasi', [DosenController::class, 'sendNotifikasi']);
+            });
+
+        // ══════════════════════════════════════════
+        //  MAHASISWA ROUTES
+        // ══════════════════════════════════════════
+        Route::middleware(\App\Http\Middleware\RoleMiddleware::class . ':mahasiswa')
+            ->prefix('mahasiswa')
+            ->group(function () {
+                Route::get('/dashboard', [MahasiswaController::class, 'dashboard']);
+                Route::get('/jadwal', [MahasiswaController::class, 'jadwal']);
+                Route::get('/kelas', [MahasiswaController::class, 'kelasList']);
+
+                // Materi
+                Route::get('/kelas/{kelas}/materi', [MahasiswaController::class, 'materiByKelas']);
+
+                // Quiz
+                Route::get('/kelas/{kelas}/quiz', [MahasiswaController::class, 'quizByKelas']);
+                Route::get('/kelas/{kelas}/quiz/{quiz}', [MahasiswaController::class, 'quizDetail']);
+                Route::post('/kelas/{kelas}/quiz/{quiz}/submit', [MahasiswaController::class, 'submitQuiz']);
+
+                // Nilai & Absensi
+                Route::get('/nilai', [MahasiswaController::class, 'nilai']);
+                Route::get('/absensi', [MahasiswaController::class, 'absensi']);
+
+                // Chat
+                Route::get('/kelas/{kelas}/chat', [MahasiswaController::class, 'chatIndex']);
+                Route::post('/kelas/{kelas}/chat', [MahasiswaController::class, 'chatSend']);
+            });
+    });
+});
