@@ -286,6 +286,12 @@ class AdminController extends Controller
     {
         $query = Dosen::with('user');
 
+        \Illuminate\Support\Facades\Log::info("dosenList called with prodi_id: " . $request->get('prodi_id') . " Total Dosen in DB: " . Dosen::count() . " Total with this prodi: " . (clone $query)->where('prodi_id', $request->prodi_id)->count());
+
+        if ($request->has('prodi_id') && $request->prodi_id !== '') {
+            $query->where('prodi_id', $request->prodi_id);
+        }
+
         if ($request->has('search')) {
             $s = $request->search;
             $query->where(function ($q) use ($s) {
@@ -293,8 +299,8 @@ class AdminController extends Controller
                   ->orWhereHas('user', fn($q2) => $q2->where('name', 'LIKE', "%{$s}%"));
             });
         }
-
-        return response()->json($query->orderByDesc('id')->paginate(20));
+        $perPage = $request->get('per_page', 20);
+        return response()->json($query->orderByDesc('id')->paginate($perPage));
     }
 
     /* ══════════════════════════════════════════════

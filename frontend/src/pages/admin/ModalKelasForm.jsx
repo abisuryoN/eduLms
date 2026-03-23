@@ -50,15 +50,13 @@ export const ModalKelasForm = ({ isOpen, onClose, onSuccess }) => {
 
   const fetchInitialData = async () => {
     try {
-      const [resReferensi, resDosen] = await Promise.all([
-        api.get('/admin/referensi/options'),
-        api.get('/admin/dosen?per_page=1000')
+      const [resReferensi] = await Promise.all([
+        api.get('/admin/referensi/options')
       ])
       
       setFakultasList(resReferensi.data.fakultas)
       setTahunAjaranOptions(resReferensi.data.tahun_ajaran)
       setSemesterOptions(resReferensi.data.semester)
-      setDosenList(resDosen.data.data || resDosen.data)
       
       // Select defaults for dropdowns if available
       if (resReferensi.data.tahun_ajaran.length > 0) {
@@ -106,6 +104,23 @@ export const ModalKelasForm = ({ isOpen, onClose, onSuccess }) => {
     }
     fetchMatkul()
   }, [formData.prodi_id, formData.semester])
+
+  // Effect to fetch Dosen when Prodi is selected
+  useEffect(() => {
+    const fetchDosen = async () => {
+        if (!formData.prodi_id) {
+            setDosenList([])
+            return;
+        }
+        try {
+            const res = await api.get(`/admin/dosen?prodi_id=${formData.prodi_id}&per_page=1000`)
+            setDosenList(res.data.data || res.data)
+        } catch (error) {
+            // Optional: you can toaster error here if you'd like
+        }
+    }
+    fetchDosen()
+  }, [formData.prodi_id])
 
 
   const addKelasRow = () => {

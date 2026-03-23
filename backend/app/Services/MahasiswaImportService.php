@@ -167,7 +167,7 @@ class MahasiswaImportService
 
                     foreach ($chunk as $row) {
                         $mahasiswasData[] = [
-                            'user_id' => $userMap[$row['generated_nim']],
+                            'user_id' => $userMap[$row['generated_nim']] ?? null,
                             'prodi_id' => $row['prodi_id'],
                             'nim' => $row['generated_nim'],
                             'tanggal_lahir' => $row['tgl_lahir_carbon'],
