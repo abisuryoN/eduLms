@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Plus, Edit2, Trash2, Search, Filter, Loader2, Calendar } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Filter, Loader2, Calendar, BookOpen } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../lib/api'
 import { Card, CardContent } from '../../components/ui/Card'
@@ -18,6 +18,9 @@ const JadwalAdmin = () => {
   const [modalMode, setModalMode] = useState('add')
   const [selectedJadwal, setSelectedJadwal] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [currentStep, setCurrentStep] = useState(1)
+  const [selectedClassDetail, setSelectedClassDetail] = useState(null)
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false)
 
   // Search & Pagination State
   const [searchQuery, setSearchQuery] = useState('')
@@ -195,24 +198,38 @@ const JadwalAdmin = () => {
 
   useEffect(() => {
     setFormKelasList([])
-    if (!formProdi || !formSemester) return
+    // Relaxed guard: fetch if at least one filter is active
+    if (!formFakultas && !formProdi && !formSemester && !formKategoriKelas) return
+    
     const fetchKelas = async () => {
+      console.log('FETCHING KELAS WITH FILTERS:', { 
+        fakultas: formFakultas, 
+        prodi: formProdi, 
+        semester: formSemester, 
+        kategori: formKategoriKelas 
+      })
       try {
-        const params = new URLSearchParams({
+        const params = {
+          fakultas_id: formFakultas,
           prodi_id: formProdi,
           semester: formSemester,
-          per_page: '100'
-        })
-        if (formKategoriKelas) params.set('kategori_kelas', formKategoriKelas)
-        const res = await api.get(`/admin/kelas?${params.toString()}`)
-        setFormKelasList(res.data.data?.data || res.data.data || [])
-      } catch { }
+          kategori: formKategoriKelas,
+          all: 1
+        }
+        const res = await api.get('/admin/kelas', { params })
+        console.log('FETCH KELAS RESULT:', res.data.data)
+        setFormKelasList(res.data.data || [])
+      } catch (error) {
+        console.error('Failed to fetch classes for form', error)
+      }
     }
     fetchKelas()
-  }, [formProdi, formSemester, formKategoriKelas])
+  }, [formFakultas, formProdi, formSemester, formKategoriKelas])
 
   const handleOpenModal = (mode, jadwal = null) => {
     setModalMode(mode)
+    setCurrentStep(1)
+    setSelectedClassDetail(null)
     if (mode === 'edit' && jadwal) {
       setSelectedJadwal(jadwal)
       setFormData({
@@ -224,7 +241,9 @@ const JadwalAdmin = () => {
         lantai: jadwal.lantai || '',
         ruangan: jadwal.ruangan || '',
       })
-      // Pre-fill form filters from existing jadwal
+      // Fetch detail for edit mode too
+      fetchClassDetail(jadwal.kelas_id)
+      
       setFormFakultas('')
       setFormProdi('')
       setFormSemester('')
@@ -246,6 +265,40 @@ const JadwalAdmin = () => {
       })
     }
     setIsModalOpen(true)
+  }
+
+  const fetchClassDetail = async (classId) => {
+    if (!classId) return
+    setIsLoadingDetail(true)
+    try {
+      const res = await api.get(`/admin/kelas/${classId}`)
+      setSelectedClassDetail(res.data.data)
+    } catch (error) {
+      toast.error('Gagal memuat detail kelas')
+    } finally {
+      setIsLoadingDetail(false)
+    }
+  }
+
+  const handleSelectClass = (classId) => {
+    setFormData({ ...formData, kelas_id: classId })
+    fetchClassDetail(classId)
+  }
+
+  const handleNext = () => {
+    if (currentStep === 1) {
+      if (!formData.kelas_id) {
+        toast.error('Silakan pilih kelas terlebih dahulu')
+        return
+      }
+      setCurrentStep(2)
+    } else if (currentStep === 2) {
+      setCurrentStep(3)
+    }
+  }
+
+  const handleBack = () => {
+    setCurrentStep(prev => Math.max(1, prev - 1))
   }
 
   const handleSubmit = async (e) => {
@@ -280,7 +333,7 @@ const JadwalAdmin = () => {
     }
   }
 
-  const selectClass = 'block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2 px-3 transition-colors disabled:opacity-50'
+  const selectClass = 'block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 text-sm py-2 px-3 transition-colors disabled:opacity-50 max-h-52 overflow-y-auto'
 
   return (
     <div className="space-y-6">
@@ -416,112 +469,179 @@ const JadwalAdmin = () => {
         onClose={() => setIsModalOpen(false)}
         title={modalMode === 'add' ? 'Tambah Jadwal Baru' : 'Edit Jadwal'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {modalMode === 'add' && (
-            <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pilih Kelas</p>
-              {/* 1. Fakultas */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Step Indicator */}
+          <div className="flex items-center justify-between mb-8">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center flex-1 last:flex-none">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors font-bold text-sm ${
+                  currentStep === s 
+                    ? 'border-brand-600 bg-brand-600 text-white' 
+                    : currentStep > s 
+                      ? 'border-brand-600 bg-brand-50 text-brand-600' 
+                      : 'border-gray-200 text-gray-400'
+                }`}>
+                  {s}
+                </div>
+                {s < 3 && (
+                  <div className={`flex-1 h-0.5 mx-2 ${currentStep > s ? 'bg-brand-600' : 'bg-gray-200'}`} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* STEP 1: Filter & Pilih Kelas */}
+          {currentStep === 1 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex flex-col gap-4 md:grid md:grid-cols-2 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <div className="relative z-50">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Fakultas</label>
+                  <select className={selectClass} value={formFakultas} onChange={(e) => setFormFakultas(e.target.value)} disabled={modalMode === 'edit'}>
+                    <option value="">-- Semua Fakultas --</option>
+                    {formFakultasList.map(f => <option key={f.id} value={f.id}>{f.nama}</option>)}
+                  </select>
+                </div>
+                <div className="relative z-50">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Program Studi</label>
+                  <select className={selectClass} value={formProdi} onChange={(e) => setFormProdi(e.target.value)} disabled={!formFakultas || modalMode === 'edit'}>
+                    <option value="">-- Semua Prodi --</option>
+                    {formProdiList.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                  </select>
+                </div>
+                <div className="relative z-50">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Semester</label>
+                  <select className={selectClass} value={formSemester} onChange={(e) => setFormSemester(e.target.value)} disabled={modalMode === 'edit'}>
+                    <option value="">-- Semua Semester --</option>
+                    {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>Semester {s}</option>)}
+                  </select>
+                </div>
+                <div className="relative z-50">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Kategori Kelas</label>
+                  <select className={selectClass} value={formKategoriKelas} onChange={(e) => setFormKategoriKelas(e.target.value)} disabled={modalMode === 'edit'}>
+                    <option value="">Semua Kategori</option>
+                    <option value="Reguler Pagi">Reguler Pagi</option>
+                    <option value="Reguler Sore">Reguler Sore</option>
+                    <option value="Karyawan">Karyawan</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 relative z-50">
+                <label className="block text-sm font-bold text-gray-900 dark:text-gray-100 mb-2">Pilih Kelas <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <select
+                    id="kelas-select"
+                    className={`${selectClass} truncate md:whitespace-normal md:break-words`}
+                    value={formData.kelas_id}
+                    onChange={(e) => handleSelectClass(e.target.value)}
+                    required
+                    disabled={modalMode === 'edit'}
+                  >
+                    <option value="" disabled>-- Klik untuk memilih kelas --</option>
+                    {(modalMode === 'edit' ? [selectedJadwal?.kelas].filter(Boolean) : formKelasList).map(k => (
+                      <option key={k.id} value={k.id} className="py-2">
+                        {k.nama_kelas} - {k.mata_kuliah?.nama || 'Tanpa Matkul'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {formKelasList.length === 0 && modalMode === 'add' && formProdi && formSemester && (
+                  <p className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg italic">Tidak ada kelas yang ditemukan untuk filter ini.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Info Matkul & Dosen */}
+          {currentStep === 2 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+               <div className="bg-brand-50 border border-brand-100 dark:bg-brand-900/20 dark:border-brand-900/30 p-4 rounded-2xl">
+                  <h3 className="font-bold text-brand-900 dark:text-brand-300 mb-4 flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" />
+                    Detail Pelajaran di Kelas
+                  </h3>
+                  
+                  {isLoadingDetail ? (
+                    <div className="flex justify-center p-8">
+                      <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
+                    </div>
+                  ) : selectedClassDetail?.teaching_assignments?.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedClassDetail.teaching_assignments.map((ta, idx) => (
+                        <div key={idx} className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                          <p className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-tight">{ta.mata_kuliah?.nama || 'N/A'}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                            <Plus className="w-3 h-3" />
+                            Dosen: <span className="font-medium text-gray-700 dark:text-gray-200">{ta.dosen?.user?.name || '-'}</span>
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center p-6 text-gray-500 text-sm italic">
+                      Belum ada mata kuliah yang di-assign ke kelas ini.
+                    </div>
+                  )}
+               </div>
+            </div>
+          )}
+
+          {/* STEP 3: Input Jadwal */}
+          {currentStep === 3 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fakultas</label>
-                <select className={selectClass} value={formFakultas} onChange={(e) => setFormFakultas(e.target.value)}>
-                  <option value="">-- Pilih Fakultas --</option>
-                  {formFakultasList.map(f => <option key={f.id} value={f.id}>{f.nama}</option>)}
+                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Hari</label>
+                <select className={selectClass} value={formData.hari} onChange={(e) => setFormData({ ...formData, hari: e.target.value })} required>
+                  {hariOptions.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </div>
-              {/* 2. Prodi */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Program Studi</label>
-                <select className={selectClass} value={formProdi} onChange={(e) => setFormProdi(e.target.value)} disabled={!formFakultas}>
-                  <option value="">-- Pilih Prodi --</option>
-                  {formProdiList.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
-                </select>
-              </div>
-              {/* 3. Semester */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester</label>
-                <select className={selectClass} value={formSemester} onChange={(e) => setFormSemester(e.target.value)} disabled={!formProdi}>
-                  <option value="">-- Pilih Semester --</option>
-                  {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>Semester {s}</option>)}
-                </select>
-              </div>
-              {/* 4. Kategori Kelas */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kategori Kelas</label>
-                <select className={selectClass} value={formKategoriKelas} onChange={(e) => setFormKategoriKelas(e.target.value)}>
-                  <option value="">Semua Kategori</option>
-                  <option value="Reguler Pagi">Reguler Pagi</option>
-                  <option value="Reguler Sore">Reguler Sore</option>
-                  <option value="Karyawan">Karyawan</option>
-                </select>
-              </div>
-              {/* 5. Kelas */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kelas</label>
-                <select
-                  className={selectClass}
-                  value={formData.kelas_id}
-                  onChange={(e) => setFormData({ ...formData, kelas_id: e.target.value })}
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Jam Mulai"
+                  type="time"
+                  value={formData.jam_mulai}
+                  onChange={(e) => setFormData({ ...formData, jam_mulai: e.target.value })}
                   required
-                  disabled={formKelasList.length === 0}
-                >
-                  <option value="" disabled>Pilih Kelas...</option>
-                  {formKelasList.map(k => (
-                    <option key={k.id} value={k.id}>{k.nama_kelas}{k.mata_kuliah ? ` - ${k.mata_kuliah.nama}` : ''}</option>
-                  ))}
-                </select>
+                />
+                <Input
+                  label="Jam Selesai"
+                  type="time"
+                  value={formData.jam_selesai}
+                  onChange={(e) => setFormData({ ...formData, jam_selesai: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <Input label="Gedung" type="text" placeholder="Gedung" value={formData.gedung} onChange={(e) => setFormData({ ...formData, gedung: e.target.value })} />
+                <Input label="Lantai" type="text" placeholder="Lantai" value={formData.lantai} onChange={(e) => setFormData({ ...formData, lantai: e.target.value })} />
+                <Input label="Ruangan" type="text" placeholder="Ruang" value={formData.ruangan} onChange={(e) => setFormData({ ...formData, ruangan: e.target.value })} />
               </div>
             </div>
           )}
 
-          {modalMode === 'edit' && (
-            <div>
-              <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Kelas (terpilih)</label>
-              <select className={selectClass} value={formData.kelas_id} onChange={(e) => setFormData({ ...formData, kelas_id: e.target.value })} required>
-                <option value="" disabled>Pilih Kelas...</option>
-                {kelasList.map(k => (
-                  <option key={k.id} value={k.id}>{k.nama_kelas}{k.mata_kuliah ? ` - ${k.mata_kuliah.nama}` : ''}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Hari</label>
-            <select className={selectClass} value={formData.hari} onChange={(e) => setFormData({ ...formData, hari: e.target.value })} required>
-              {hariOptions.map(h => <option key={h} value={h}>{h}</option>)}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Jam Mulai"
-              type="time"
-              value={formData.jam_mulai}
-              onChange={(e) => setFormData({ ...formData, jam_mulai: e.target.value })}
-              required
-            />
-            <Input
-              label="Jam Selesai"
-              type="time"
-              value={formData.jam_selesai}
-              onChange={(e) => setFormData({ ...formData, jam_selesai: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <Input label="Gedung" type="text" placeholder="Misal: 5" value={formData.gedung} onChange={(e) => setFormData({ ...formData, gedung: e.target.value })} />
-            <Input label="Lantai" type="text" placeholder="Misal: 4" value={formData.lantai} onChange={(e) => setFormData({ ...formData, lantai: e.target.value })} />
-            <Input label="Ruangan" type="text" placeholder="Misal: 2" value={formData.ruangan} onChange={(e) => setFormData({ ...formData, ruangan: e.target.value })} />
-          </div>
-
-          <div className="mt-6 flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit" isLoading={isSubmitting}>
-              Simpan
-            </Button>
+          {/* Navigation Buttons */}
+          <div className="mt-8 flex justify-between gap-3 pt-6 border-t dark:border-gray-800">
+            {currentStep > 1 ? (
+              <Button type="button" variant="secondary" onClick={handleBack} disabled={isSubmitting}>
+                Kembali
+              </Button>
+            ) : (
+              <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>
+                Batal
+              </Button>
+            )}
+            
+            {currentStep < 3 ? (
+              <Button type="button" id="next-btn" onClick={handleNext} className="flex items-center gap-2">
+                Next <Plus className="w-4 h-4 rotate-45" />
+              </Button>
+            ) : (
+              <Button type="submit" isLoading={isSubmitting}>
+                {modalMode === 'add' ? 'Tambah Jadwal' : 'Simpan Perubahan'}
+              </Button>
+            )}
           </div>
         </form>
       </Modal>

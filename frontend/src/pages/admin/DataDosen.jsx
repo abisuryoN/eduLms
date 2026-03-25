@@ -35,9 +35,10 @@ const DataDosen = () => {
   useEffect(() => {
     const fetchRef = async () => {
       try {
-        setFakultasList(res.data.data?.fakultas || [])
-      } catch {
-        // silent
+        const res = await api.get('/admin/referensi/options')
+        setFakultasList(res.data.data?.fakultas || res.data.fakultas || [])
+      } catch (err) {
+        console.error('Failed to fetch reference options', err)
       } finally {
         setLoadingRef(false)
       }

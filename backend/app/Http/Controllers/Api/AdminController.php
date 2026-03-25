@@ -135,6 +135,8 @@ class AdminController extends Controller
 
     public function kelasIndex(Request $request): JsonResponse
     {
+        \Log::info('FILTER:', $request->all());
+
         $query = Kelas::with([
             'prodi.fakultas',
             'teachingAssignments.mataKuliah',
@@ -152,22 +154,37 @@ class AdminController extends Controller
             $query->where('fakultas_id', $request->fakultas_id);
         }
         if ($request->filled('prodi_id')) {
-            $query->where('prodi_id', $request->prodi_id);
+            $query->where(function ($q) use ($request) {
+                $q->where('prodi_id', $request->prodi_id)
+                  ->orWhereNull('prodi_id');
+            });
         }
-        if ($request->filled('kategori_kelas')) {
-            $query->where('kategori_kelas', $request->kategori_kelas);
+
+        if ($request->filled('kategori_kelas') || $request->filled('kategori')) {
+            $cat = $request->kategori_kelas ?: $request->kategori;
+            // Use LIKE and LOWER for maximum flexibility
+            $query->whereRaw('LOWER(kategori_kelas) LIKE ?', ['%' . strtolower($cat) . '%']);
         }
+
+        \Log::info('RESULT:', $query->get()->toArray());
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama_kelas', 'LIKE', "%{$search}%")
+                  ->orWhereHas('prodi', fn($p) => $p->where('nama', 'LIKE', "%{$search}%"))
                   ->orWhereHas('teachingAssignments.mataKuliah', function ($mq) use ($search) {
                       $mq->where('nama', 'LIKE', "%{$search}%");
-                  })
-                  ->orWhereHas('teachingAssignments.dosen.user', function ($uq) use ($search) {
-                      $uq->where('name', 'LIKE', "%{$search}%");
                   });
             });
+        }
+
+        // Support for non-paginated results (e.g., for dropdowns)
+        if ($request->boolean('all')) {
+            return response()->json([
+                'success' => true,
+                'data'    => $query->orderByDesc('id')->get()
+            ]);
         }
 
         return response()->json([

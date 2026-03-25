@@ -83,11 +83,19 @@ const AssignMahasiswa = () => {
     if (!selectedProdi || !selectedSemester) return
     const fetchKelas = async () => {
       try {
-        const params = new URLSearchParams({ per_page: '100', prodi_id: selectedProdi, semester: selectedSemester })
-        if (selectedKategoriKelas) params.set('kategori_kelas', selectedKategoriKelas)
+        const params = {
+           prodi_id: selectedProdi,
+           semester: selectedSemester,
+           per_page: '100',
+           all: 1
+        }
+        if (selectedKategoriKelas) params.kategori = selectedKategoriKelas
+        const res = await api.get('/admin/kelas', { params })
         const kelasData = res.data.data
         setKelasList(Array.isArray(kelasData) ? kelasData : kelasData?.data || [])
-      } catch { /* silent */ }
+      } catch (err) {
+        console.error('Failed to fetch classes in AssignMahasiswa', err)
+      }
     }
     fetchKelas()
   }, [selectedProdi, selectedSemester, selectedKategoriKelas])
