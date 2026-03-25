@@ -49,10 +49,11 @@ class Chat extends Model
     }
 
     /**
-     * Deletable only by owner.
+     * Deletable only by owner within 1 hour of creation.
      */
     public function isDeletable(int $userId): bool
     {
-        return $this->isOwnedBy($userId);
+        return $this->isOwnedBy($userId)
+            && $this->created_at->diffInMinutes(now()) <= 60;
     }
 }

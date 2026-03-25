@@ -6,6 +6,7 @@ import api from '../../lib/api'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Pagination } from '../../components/ui/Pagination'
+import FilterBar from '../../components/ui/FilterBar'
 
 const AssignMahasiswa = () => {
   const [searchParams] = useSearchParams()
@@ -21,6 +22,7 @@ const AssignMahasiswa = () => {
   const [selectedFakultas, setSelectedFakultas] = useState('')
   const [selectedProdi, setSelectedProdi] = useState('')
   const [selectedSemester, setSelectedSemester] = useState('')
+  const [selectedKategoriKelas, setSelectedKategoriKelas] = useState('')
   const [selectedKelasId, setSelectedKelasId] = useState(defaultKelasId)
   const [selectedKelasDetail, setSelectedKelasDetail] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -59,6 +61,7 @@ const AssignMahasiswa = () => {
     setProdiList([])
     setSelectedProdi('')
     setSelectedSemester('')
+    setSelectedKategoriKelas('')
     setKelasList([])
     setSelectedKelasId('')
     setSelectedKelasDetail(null)
@@ -72,7 +75,7 @@ const AssignMahasiswa = () => {
     fetchProdi()
   }, [selectedFakultas])
 
-  // Prodi + Semester → fetch Kelas
+  // Prodi + Semester + Kategori → fetch Kelas
   useEffect(() => {
     setKelasList([])
     setSelectedKelasId('')
@@ -80,15 +83,16 @@ const AssignMahasiswa = () => {
     if (!selectedProdi || !selectedSemester) return
     const fetchKelas = async () => {
       try {
-        const res = await api.get(`/admin/kelas?per_page=100&prodi_id=${selectedProdi}&semester=${selectedSemester}`)
-        const allKelas = res.data.data || res.data
-        setKelasList(allKelas)
+        const params = new URLSearchParams({ per_page: '100', prodi_id: selectedProdi, semester: selectedSemester })
+        if (selectedKategoriKelas) params.set('kategori_kelas', selectedKategoriKelas)
+        const kelasData = res.data.data
+        setKelasList(Array.isArray(kelasData) ? kelasData : kelasData?.data || [])
       } catch { /* silent */ }
     }
     fetchKelas()
-  }, [selectedProdi, selectedSemester])
+  }, [selectedProdi, selectedSemester, selectedKategoriKelas])
 
-  // When kelas selected → fetch kelas detail to get already-assigned students
+  // When kelas selected → fetch kelas detail
   useEffect(() => {
     if (!selectedKelasId) {
       setSelectedKelasDetail(null)
@@ -118,12 +122,8 @@ const AssignMahasiswa = () => {
     return () => clearTimeout(debounceRef.current)
   }, [searchQuery])
 
-  // Fetch mahasiswa (server-side) — only when kelas is selected
+  // Fetch mahasiswa — show ALL by default (no kelas requirement)
   const fetchMahasiswa = useCallback(async () => {
-    if (!selectedKelasId) {
-      setMahasiswaData(null)
-      return
-    }
     setMahasiswaLoading(true)
     try {
       const params = new URLSearchParams()
@@ -134,13 +134,13 @@ const AssignMahasiswa = () => {
       if (debouncedSearch) params.set('search', debouncedSearch)
 
       const res = await api.get(`/admin/mahasiswa?${params.toString()}`)
-      setMahasiswaData(res.data)
+      setMahasiswaData(res.data.data)
     } catch {
       setMahasiswaData(null)
     } finally {
       setMahasiswaLoading(false)
     }
-  }, [selectedKelasId, selectedProdi, selectedFakultas, currentPage, pageSize, debouncedSearch])
+  }, [selectedProdi, selectedFakultas, currentPage, pageSize, debouncedSearch])
 
   useEffect(() => {
     fetchMahasiswa()
@@ -166,11 +166,11 @@ const AssignMahasiswa = () => {
         mahasiswa_ids: Array.from(assignedIds)
       })
       toast.success('Mahasiswa berhasil di-assign ke kelas')
-      // Refresh kelas detail
       const res = await api.get(`/admin/kelas/${selectedKelasId}`)
       setSelectedKelasDetail(res.data)
-    } catch {
-      toast.error('Gagal menyimpan assign mahasiswa')
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Gagal menyimpan assign mahasiswa'
+      toast.error(msg)
     } finally {
       setIsSaving(false)
     }
@@ -187,88 +187,40 @@ const AssignMahasiswa = () => {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Assign Mahasiswa ke Kelas</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <GraduationCap className="h-7 w-7 text-brand-600 dark:text-brand-400" />
+            Assign Mahasiswa ke Kelas
+          </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Daftarkan mahasiswa peserta pada kelas yang dipilih.
           </p>
         </div>
       </div>
 
-      {/* Cascading Filters */}
-      <Card>
-        <CardContent>
-          <div className="flex items-center gap-2 mb-4 text-sm font-medium text-gray-600 dark:text-gray-400">
-            <Filter className="h-4 w-4" /> Filter Target
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Fakultas */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fakultas</label>
-              <select
-                value={selectedFakultas}
-                onChange={(e) => setSelectedFakultas(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={loadingRef}
-              >
-                <option value="">-- Pilih Fakultas --</option>
-                {fakultasList.map(f => (
-                  <option key={f.id} value={f.id}>{f.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Prodi */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Program Studi</label>
-              <select
-                value={selectedProdi}
-                onChange={(e) => setSelectedProdi(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={!selectedFakultas}
-              >
-                <option value="">-- Pilih Prodi --</option>
-                {prodiList.map(p => (
-                  <option key={p.id} value={p.id}>{p.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Semester */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Semester</label>
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={!selectedProdi}
-              >
-                <option value="">-- Pilih Semester --</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                  <option key={s} value={s}>Semester {s}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Kelas */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Kelas</label>
-              <select
-                value={selectedKelasId}
-                onChange={(e) => setSelectedKelasId(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={!selectedProdi || !selectedSemester}
-              >
-                <option value="">-- Pilih Kelas --</option>
-                {kelasList.map(k => (
-                  <option key={k.id} value={k.id}>
-                    {k.mata_kuliah?.nama || k.nama_kelas}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Cascading Filters — using reusable FilterBar */}
+      <FilterBar
+        fakultasList={fakultasList}
+        prodiList={prodiList}
+        kelasList={kelasList}
+        selectedFakultas={selectedFakultas}
+        selectedProdi={selectedProdi}
+        selectedSemester={selectedSemester}
+        selectedKategoriKelas={selectedKategoriKelas}
+        selectedKelas={selectedKelasId}
+        searchQuery={searchQuery}
+        onFakultasChange={setSelectedFakultas}
+        onProdiChange={setSelectedProdi}
+        onSemesterChange={setSelectedSemester}
+        onKategoriKelasChange={setSelectedKategoriKelas}
+        onKelasChange={setSelectedKelasId}
+        onSearchChange={setSearchQuery}
+        loadingRef={loadingRef}
+        showSemester={true}
+        showKategoriKelas={true}
+        showKelas={true}
+        showSearch={true}
+        searchPlaceholder="Cari NIM / Nama..."
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Kelas Info */}
@@ -279,7 +231,7 @@ const AssignMahasiswa = () => {
                 <div>
                   <div className="text-xs text-brand-600 dark:text-brand-400 font-semibold uppercase">Kelas Terpilih</div>
                   <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedKelasDetail.nama_kelas} - {selectedKelasDetail.mata_kuliah?.nama}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Semester {selectedKelasDetail.semester} — {selectedKelasDetail.kategori_kelas || 'Regular Pagi'}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Semester {selectedKelasDetail.semester} — {selectedKelasDetail.kategori_kelas || 'Reguler Pagi'}</div>
                 </div>
                 <div>
                   <div className="text-xs text-brand-600 dark:text-brand-400 font-semibold uppercase">Dosen Pengajar</div>
@@ -311,89 +263,74 @@ const AssignMahasiswa = () => {
         {/* Right Column - Mahasiswa List */}
         <div className="lg:col-span-2">
           <Card className="h-full flex flex-col">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
+            <CardHeader className="bg-white dark:bg-gray-800 border-b dark:border-gray-700">
               <CardTitle>Daftar Mahasiswa</CardTitle>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Cari NIM / Nama..."
-                  className="block w-full pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  disabled={!selectedKelasId}
-                />
-              </div>
             </CardHeader>
             <div className="flex-1 p-0 overflow-hidden">
-              {!selectedKelasId ? (
-                <div className="flex items-center justify-center p-12 text-gray-500 text-sm h-full">
-                  Silakan pilih kelas terlebih dahulu menggunakan filter di atas.
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col min-h-0">
-                  <div className="flex-1 overflow-y-auto w-full p-4">
-                    {mahasiswaLoading ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                          <div key={i} className="flex items-center p-3 rounded-xl border border-gray-200 dark:border-gray-700">
-                            <div className="w-5 h-5 rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse mr-3" />
-                            <div className="flex-1 space-y-1.5">
-                              <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-2/3" />
-                              <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2" />
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 overflow-y-auto w-full p-4">
+                  {mahasiswaLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="flex items-center p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                          <div className="w-5 h-5 rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse mr-3" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-2/3" />
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/2" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {mahasiswaList.map((mhs) => {
+                        const isSelected = assignedIds.has(mhs.id)
+                        return (
+                          <div
+                            key={mhs.id}
+                            onClick={() => selectedKelasId && toggleAssign(mhs.id)}
+                            className={`flex items-center p-3 rounded-xl border transition-all ${
+                              !selectedKelasId ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+                            } ${
+                              isSelected
+                                ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-sm ring-1 ring-brand-500'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <div className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center mr-3 ${
+                              isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900'
+                            }`}>
+                              {isSelected && <Check className="w-3.5 h-3.5" />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{mhs.user?.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{mhs.nim} — {mhs.prodi?.nama}</p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {mahasiswaList.map((mhs) => {
-                          const isSelected = assignedIds.has(mhs.id)
-                          return (
-                            <div
-                              key={mhs.id}
-                              onClick={() => toggleAssign(mhs.id)}
-                              className={`flex items-center p-3 rounded-xl border cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-sm ring-1 ring-brand-500'
-                                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                              }`}
-                            >
-                              <div className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center mr-3 ${
-                                isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900'
-                              }`}>
-                                {isSelected && <Check className="w-3.5 h-3.5" />}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{mhs.user?.name}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{mhs.nim} — {mhs.prodi?.nama}</p>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {!mahasiswaLoading && mahasiswaList.length === 0 && (
-                      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                        Tidak ada mahasiswa yang cocok dengan pencarian.
-                      </div>
-                    )}
-                  </div>
-
-                  {!mahasiswaLoading && totalItems > 0 && (
-                    <div className="border-t dark:border-gray-700">
-                      <Pagination
-                        currentPage={currentPage}
-                        totalPages={totalPages}
-                        pageSize={pageSize}
-                        totalItems={totalItems}
-                        onPageChange={setCurrentPage}
-                        onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-                      />
+                        )
+                      })}
+                    </div>
+                  )}
+                  {!mahasiswaLoading && mahasiswaList.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                      Tidak ada mahasiswa yang cocok.
                     </div>
                   )}
                 </div>
-              )}
+
+                {!mahasiswaLoading && totalItems > 0 && (
+                  <div className="border-t dark:border-gray-700">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      pageSize={pageSize}
+                      totalItems={totalItems}
+                      onPageChange={setCurrentPage}
+                      onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
         </div>

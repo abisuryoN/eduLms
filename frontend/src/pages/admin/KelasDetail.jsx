@@ -15,7 +15,8 @@ const KelasDetail = () => {
     const fetchDetail = async () => {
         try {
             const res = await api.get(`/admin/kelas/${id}`)
-            setKelas(res.data)
+            console.log('API Response:', res.data) // DEBUG
+            setKelas(res.data.data || res.data)
         } catch (error) {
             toast.error('Gagal mengambil data kelas')
         } finally {
@@ -33,7 +34,7 @@ const KelasDetail = () => {
         <div className="text-center py-20 text-gray-500">
             Kelas tidak ditemukan.
             <div className="mt-4">
-                <Link to="/admin/manajemen-kelas">
+                <Link to="/admin/data-kelas">
                     <Button variant="outline">Kembali</Button>
                 </Link>
             </div>
@@ -48,7 +49,7 @@ const KelasDetail = () => {
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex flex-row items-center gap-4">
-                    <Link to="/admin/manajemen-kelas">
+                    <Link to="/admin/data-kelas">
                         <Button variant="secondary" size="sm" className="hidden sm:flex">
                             <ArrowLeft className="w-4 h-4 mr-1" /> Kembali
                         </Button>
@@ -63,6 +64,7 @@ const KelasDetail = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    {console.log('Current Kelas State:', kelas)} {/* DEBUG inline */}
                     <Link to={`/admin/chat/kelas/${kelas.id}`}>
                         <Button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                             <MessageCircle className="w-4 h-4" />

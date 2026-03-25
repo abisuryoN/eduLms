@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
+import { Card } from '../../components/ui/Card'
 import { Pagination } from '../../components/ui/Pagination'
-import { Search, Users, Filter, Loader2, MessageSquare, BookOpen, GraduationCap } from 'lucide-react'
+import { Users, Loader2, MessageSquare, BookOpen, GraduationCap, Eye } from 'lucide-react'
+import FilterBar from '../../components/ui/FilterBar'
 import api from '../../lib/api'
 import { Button } from '../../components/ui/Button'
 import { Link } from 'react-router-dom'
@@ -18,6 +19,7 @@ const DataKelas = () => {
   const [selectedFakultas, setSelectedFakultas] = useState('')
   const [selectedProdi, setSelectedProdi] = useState('')
   const [selectedSemester, setSelectedSemester] = useState('')
+  const [selectedKategoriKelas, setSelectedKategoriKelas] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
@@ -41,8 +43,8 @@ const DataKelas = () => {
           api.get('/admin/referensi/options'),
           api.get('/admin/semester-list'),
         ])
-        setFakultasList(resFak.data.fakultas || [])
-        setSemesterList(resSem.data || [])
+        setFakultasList(resFak.data.data?.fakultas || [])
+        setSemesterList(resSem.data.data || [])
       } catch {
         // silent
       } finally {
@@ -61,7 +63,7 @@ const DataKelas = () => {
     const fetchProdi = async () => {
       try {
         const res = await api.get(`/admin/prodi?fakultas_id=${selectedFakultas}`)
-        setProdiList(res.data.data || res.data)
+        setProdiList(res.data.data?.data || res.data.data || [])
       } catch { /* silent */ }
     }
     fetchProdi()
@@ -87,16 +89,17 @@ const DataKelas = () => {
       if (selectedFakultas) params.set('fakultas_id', selectedFakultas)
       if (selectedProdi) params.set('prodi_id', selectedProdi)
       if (selectedSemester) params.set('semester', selectedSemester)
+      if (selectedKategoriKelas) params.set('kategori_kelas', selectedKategoriKelas)
       if (debouncedSearch) params.set('search', debouncedSearch)
 
       const res = await api.get(`/admin/kelas?${params.toString()}`)
-      setKelasData(res.data)
+      setKelasData(res.data.data)
     } catch {
       setKelasData(null)
     } finally {
       setLoading(false)
     }
-  }, [currentPage, pageSize, selectedFakultas, selectedProdi, selectedSemester, debouncedSearch])
+  }, [currentPage, pageSize, selectedFakultas, selectedProdi, selectedSemester, selectedKategoriKelas, debouncedSearch])
 
   useEffect(() => {
     fetchKelas()
@@ -105,7 +108,7 @@ const DataKelas = () => {
   // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedFakultas, selectedProdi, selectedSemester, pageSize])
+  }, [selectedFakultas, selectedProdi, selectedSemester, selectedKategoriKelas, pageSize])
 
   const kelasList = kelasData?.data || []
   const totalItems = kelasData?.total || 0
@@ -126,79 +129,27 @@ const DataKelas = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
-            <div className="sm:col-span-2 lg:col-span-4 xl:col-span-1 border-b xl:border-b-0 xl:border-r border-gray-100 dark:border-gray-800 pb-2 xl:pb-0 xl:pr-4 flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-              <Filter className="h-4 w-4" /> Filter
-            </div>
-
-            {/* Fakultas */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fakultas</label>
-              <select
-                value={selectedFakultas}
-                onChange={(e) => setSelectedFakultas(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={loadingRef}
-              >
-                <option value="">Semua Fakultas</option>
-                {fakultasList.map(f => (
-                  <option key={f.id} value={f.id}>{f.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Prodi */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Program Studi</label>
-              <select
-                value={selectedProdi}
-                onChange={(e) => setSelectedProdi(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={!selectedFakultas}
-              >
-                <option value="">Semua Prodi</option>
-                {prodiList.map(p => (
-                  <option key={p.id} value={p.id}>{p.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Semester */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Semester</label>
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={loadingRef}
-              >
-                <option value="">Semua Semester</option>
-                {semesterList.map(s => (
-                  <option key={s} value={s}>Semester {s}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cari Kelas</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Ketik nama kelas..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Filters — using reusable FilterBar */}
+      <FilterBar
+        fakultasList={fakultasList}
+        prodiList={prodiList}
+        selectedFakultas={selectedFakultas}
+        selectedProdi={selectedProdi}
+        selectedSemester={selectedSemester}
+        selectedKategoriKelas={selectedKategoriKelas}
+        searchQuery={searchQuery}
+        onFakultasChange={setSelectedFakultas}
+        onProdiChange={setSelectedProdi}
+        onSemesterChange={setSelectedSemester}
+        onKategoriKelasChange={setSelectedKategoriKelas}
+        onSearchChange={setSearchQuery}
+        loadingRef={loadingRef}
+        showSemester={true}
+        showKategoriKelas={true}
+        showKelas={false}
+        showSearch={true}
+        searchPlaceholder="Ketik nama kelas..."
+      />
 
       {/* Table */}
       <Card>
@@ -211,6 +162,7 @@ const DataKelas = () => {
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mata Kuliah & Pengajar</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Dosen PA</th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semester</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kategori</th>
                   <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
                 </tr>
               </thead>
@@ -218,7 +170,7 @@ const DataKelas = () => {
                 {loading ? (
                   Array.from({ length: pageSize }).map((_, i) => (
                     <tr key={`skel-${i}`}>
-                      {Array.from({ length: 5 }).map((_, j) => (
+                      {Array.from({ length: 6 }).map((_, j) => (
                         <td key={j} className="px-6 py-4">
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style={{width: j === 1 ? '70%' : '50%'}}></div>
                         </td>
@@ -227,7 +179,7 @@ const DataKelas = () => {
                   ))
                 ) : kelasList.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400 font-medium">
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400 font-medium">
                       <GraduationCap className="h-10 w-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                       Tidak ada data kelas ditemukan.
                     </td>
@@ -281,19 +233,40 @@ const DataKelas = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {kelas.pembimbing_akademik && (
-                          <Link to={`/${user?.role}/chat?kelas_id=${kelas.id}`}>
-                            <Button 
-                              variant="secondary" 
-                              size="sm" 
-                              className="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-400 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center gap-2 mx-auto"
-                              title="Hubungi Mahasiswa (WA/Chat)"
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 border border-purple-100 dark:border-purple-800">
+                          {kelas.kategori_kelas || 'Reguler Pagi'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {/* Detail Kelas */}
+                          <Link to={`/admin/kelas/${kelas.id}`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-brand-600 border-brand-200 hover:bg-brand-50 dark:text-brand-400 dark:border-brand-800 dark:hover:bg-brand-900/30 rounded-xl flex items-center gap-1.5"
+                              title="Detail Kelas"
                             >
-                              <MessageSquare className="w-4 h-4" />
-                              <span className="hidden sm:inline">Hubungi Kelas</span>
+                              <Eye className="w-4 h-4" />
+                              <span className="hidden sm:inline">Detail</span>
                             </Button>
                           </Link>
-                        )}
+
+                          {/* Hubungi Kelas */}
+                          {kelas.pembimbing_akademik && (
+                            <Link to={`/${user?.role}/chat/kelas/${kelas.id}`}>
+                              <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                className="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-900/30 dark:text-brand-400 border border-brand-100 dark:border-brand-800 rounded-xl flex items-center gap-1.5"
+                                title="Hubungi Kelas via Chat"
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                                <span className="hidden sm:inline">Chat</span>
+                              </Button>
+                            </Link>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

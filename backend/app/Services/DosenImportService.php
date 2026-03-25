@@ -116,11 +116,14 @@ class DosenImportService
                     ];
                 } else {
                     if ($isNewUser) {
+                        // Password default menggunakan tanggal lahir (format: dmy, contoh: 25031995)
+                        $passwordDefault = Hash::make($tglLahirCarbon->format('dmY'));
+                        
                         $validUsers[] = [
                             'name'           => $nama,
                             'email'          => $email,
                             'username'       => $idKerja,
-                            'password'       => $defaultPassword,
+                            'password'       => $passwordDefault,
                             'role'           => 'dosen',
                             'is_first_login' => true,
                             'created_at'     => $now,

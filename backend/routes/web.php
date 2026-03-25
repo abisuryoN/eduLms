@@ -1,11 +1,12 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Mail;
 
-Route::get('/', function () {
-    return response()->json([
-        'app'     => 'EduLMS API',
-        'version' => '1.0.0',
-        'status'  => 'running',
-    ]);
-});
+Route::get('/test-mail', function () {
+    Mail::raw('Test email Laravel', function ($message) {
+            $message->to('suryonegoro2006@gmail.com')
+                ->subject('Test Email');
+        }
+        );
+
+        return 'Email sent!';    });

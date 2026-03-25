@@ -11,7 +11,7 @@ const Absensi = () => {
     const fetchAbsensi = async () => {
       try {
         const res = await api.get('/mahasiswa/absensi')
-        setAbsensiData(res.data)
+        setAbsensiData(res.data.data || res.data)
       } catch (error) {
         console.error('Gagal mengambil absensi', error)
       } finally {

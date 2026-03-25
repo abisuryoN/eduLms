@@ -45,6 +45,11 @@ class DataMahasiswaService
             $q->whereHas('kelas', fn($k) => $k->where('kelas.semester', $request->semester));
         });
 
+        // Filter by kategori kelas (via kelas pivot)
+        $query->when($request->filled('kategori_kelas'), function ($q) use ($request) {
+            $q->whereHas('kelas', fn($k) => $k->where('kelas.kategori_kelas', $request->kategori_kelas));
+        });
+
         // Search by name or NIM
         $query->when($request->filled('search'), function ($q) use ($request) {
             $search = $request->search;

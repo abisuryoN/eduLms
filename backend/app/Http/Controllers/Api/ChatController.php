@@ -20,7 +20,10 @@ class ChatController extends Controller
      */
     public function kelasInfo(Kelas $kelas): JsonResponse
     {
-        return response()->json($this->chatService->getKelasInfo($kelas->id));
+        return response()->json([
+            'success' => true,
+            'data'    => $this->chatService->getKelasInfo($kelas->id)
+        ]);
     }
 
     /**
@@ -33,13 +36,15 @@ class ChatController extends Controller
 
         if ($afterId) {
             return response()->json([
-                'data' => $this->chatService->getNewMessages($kelas->id, $afterId),
+                'success' => true,
+                'data'    => $this->chatService->getNewMessages($kelas->id, $afterId),
             ]);
         }
 
-        return response()->json(
-            $this->chatService->getMessages($kelas->id, $request->integer('per_page', 50))
-        );
+        return response()->json([
+            'success' => true,
+            'data'    => $this->chatService->getMessages($kelas->id, $request->integer('per_page', 50))
+        ]);
     }
 
     /**
@@ -58,7 +63,11 @@ class ChatController extends Controller
             $request->pesan
         );
 
-        return response()->json($chat, 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Pesan terkirim.',
+            'data'    => $chat
+        ], 201);
     }
 
     /**
@@ -77,7 +86,11 @@ class ChatController extends Controller
             $request->pesan
         );
 
-        return response()->json($chat);
+        return response()->json([
+            'success' => true,
+            'message' => 'Pesan diperbarui.',
+            'data'    => $chat
+        ]);
     }
 
     /**
@@ -88,6 +101,21 @@ class ChatController extends Controller
     {
         $this->chatService->deleteMessage($chatId, auth()->id());
 
-        return response()->json(['message' => 'Pesan telah dihapus.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Pesan telah dihapus.'
+        ]);
+    }
+
+    /**
+     * GET /class/{kelas}/members
+     * Get all members of a kelas.
+     */
+    public function members(Kelas $kelas): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data'    => $this->chatService->getMembers($kelas->id)
+        ]);
     }
 }

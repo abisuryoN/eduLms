@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
+import { Card } from '../../components/ui/Card'
 import { Pagination } from '../../components/ui/Pagination'
-import { Search, GraduationCap, Filter, Loader2 } from 'lucide-react'
+import { GraduationCap, Loader2 } from 'lucide-react'
+import FilterBar from '../../components/ui/FilterBar'
 import api from '../../lib/api'
 
 const DataMahasiswa = () => {
@@ -13,7 +14,7 @@ const DataMahasiswa = () => {
   // Filters
   const [selectedFakultas, setSelectedFakultas] = useState('')
   const [selectedProdi, setSelectedProdi] = useState('')
-  const [selectedSemester, setSelectedSemester] = useState('')
+  const [selectedKategoriKelas, setSelectedKategoriKelas] = useState('')
   const [selectedKelas, setSelectedKelas] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -22,7 +23,6 @@ const DataMahasiswa = () => {
   const [mahasiswaData, setMahasiswaData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [loadingRef, setLoadingRef] = useState(true)
-  const [selectedKelasDetail, setSelectedKelasDetail] = useState(null)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -35,8 +35,7 @@ const DataMahasiswa = () => {
   useEffect(() => {
     const fetchRef = async () => {
       try {
-        const res = await api.get('/admin/referensi/options')
-        setFakultasList(res.data.fakultas || [])
+        setFakultasList(res.data.data?.fakultas || [])
       } catch {
         // silent
       } finally {
@@ -50,7 +49,6 @@ const DataMahasiswa = () => {
   useEffect(() => {
     setProdiList([])
     setSelectedProdi('')
-    setSelectedSemester('')
     setKelasList([])
     setSelectedKelas('')
     if (!selectedFakultas) return
@@ -58,32 +56,34 @@ const DataMahasiswa = () => {
     const fetchProdi = async () => {
       try {
         const res = await api.get(`/admin/prodi?fakultas_id=${selectedFakultas}`)
-        setProdiList(res.data.data || res.data)
+        setProdiList(res.data.data?.data || res.data.data || [])
       } catch { /* silent */ }
     }
     fetchProdi()
   }, [selectedFakultas])
 
-  // When prodi or semester changes → fetch kelas
+  // When prodi changes → fetch kelas
   useEffect(() => {
     setKelasList([])
     setSelectedKelas('')
-    if (!selectedProdi || !selectedSemester) return
+    if (!selectedProdi) return
 
     const fetchKelas = async () => {
       try {
-        const res = await api.get(`/admin/kelas?per_page=100&prodi_id=${selectedProdi}&semester=${selectedSemester}`)
-        const allKelas = res.data.data || res.data
+        const params = new URLSearchParams({ per_page: '100', prodi_id: selectedProdi })
+        if (selectedKategoriKelas) params.set('kategori_kelas', selectedKategoriKelas)
+        const res = await api.get(`/admin/kelas?${params.toString()}`)
+        const allKelas = res.data.data?.data || res.data.data || []
         setKelasList(allKelas)
       } catch { /* silent */ }
     }
     fetchKelas()
-  }, [selectedProdi, selectedSemester])
+  }, [selectedProdi, selectedKategoriKelas])
 
   // Auto reset page
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedFakultas, selectedProdi, selectedSemester, selectedKelas, pageSize])
+  }, [selectedFakultas, selectedProdi, selectedKategoriKelas, selectedKelas, pageSize])
 
   // Debounce search
   useEffect(() => {
@@ -104,24 +104,22 @@ const DataMahasiswa = () => {
       params.set('per_page', pageSize)
       if (selectedFakultas) params.set('fakultas_id', selectedFakultas)
       if (selectedProdi) params.set('prodi_id', selectedProdi)
-      if (selectedSemester) params.set('semester', selectedSemester)
+      if (selectedKategoriKelas) params.set('kategori_kelas', selectedKategoriKelas)
       if (selectedKelas) params.set('kelas_id', selectedKelas)
       if (debouncedSearch) params.set('search', debouncedSearch)
 
       const res = await api.get(`/admin/mahasiswa?${params.toString()}`)
-      setMahasiswaData(res.data)
+      setMahasiswaData(res.data.data)
     } catch {
       setMahasiswaData(null)
     } finally {
       setLoading(false)
     }
-  }, [currentPage, pageSize, selectedFakultas, selectedProdi, selectedSemester, selectedKelas, debouncedSearch])
+  }, [currentPage, pageSize, selectedFakultas, selectedProdi, selectedKategoriKelas, selectedKelas, debouncedSearch])
 
   useEffect(() => {
     fetchMahasiswa()
   }, [fetchMahasiswa])
-
-
 
   const mahasiswaList = mahasiswaData?.data || []
   const totalItems = mahasiswaData?.total || 0
@@ -140,95 +138,28 @@ const DataMahasiswa = () => {
         </p>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
-            <div className="sm:col-span-2 lg:col-span-3 xl:col-span-5 flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-              <Filter className="h-4 w-4" /> Filter Data
-            </div>
-
-            {/* Fakultas */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fakultas</label>
-              <select
-                value={selectedFakultas}
-                onChange={(e) => setSelectedFakultas(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                disabled={loadingRef}
-              >
-                <option value="">Semua Fakultas</option>
-                {fakultasList.map(f => (
-                  <option key={f.id} value={f.id}>{f.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Prodi */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Program Studi</label>
-              <select
-                value={selectedProdi}
-                onChange={(e) => setSelectedProdi(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                disabled={!selectedFakultas}
-              >
-                <option value="">Semua Prodi</option>
-                {prodiList.map(p => (
-                  <option key={p.id} value={p.id}>{p.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Semester Dropdown */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Semester</label>
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                disabled={!selectedProdi}
-              >
-                <option value="">Semua Semester</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                  <option key={s} value={s}>Semester {s}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Kelas */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Kelas</label>
-              <select
-                value={selectedKelas}
-                onChange={(e) => setSelectedKelas(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                disabled={!selectedProdi || !selectedSemester}
-              >
-                <option value="">Semua Kelas</option>
-                {kelasList.map(k => (
-                  <option key={k.id} value={k.id}>{k.nama_kelas}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cari</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama / NIM..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Filters — using reusable FilterBar */}
+      <FilterBar
+        fakultasList={fakultasList}
+        prodiList={prodiList}
+        kelasList={kelasList}
+        selectedFakultas={selectedFakultas}
+        selectedProdi={selectedProdi}
+        selectedKategoriKelas={selectedKategoriKelas}
+        selectedKelas={selectedKelas}
+        searchQuery={searchQuery}
+        onFakultasChange={setSelectedFakultas}
+        onProdiChange={setSelectedProdi}
+        onKategoriKelasChange={setSelectedKategoriKelas}
+        onKelasChange={setSelectedKelas}
+        onSearchChange={setSearchQuery}
+        loadingRef={loadingRef}
+        showSemester={false}
+        showKategoriKelas={true}
+        showKelas={true}
+        showSearch={true}
+        searchPlaceholder="Cari nama / NIM..."
+      />
 
       {/* Table */}
       <Card>
@@ -243,7 +174,6 @@ const DataMahasiswa = () => {
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fakultas</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Prodi</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kelas</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Semester</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kategori Kelas</th>
                 </tr>
               </thead>
@@ -251,7 +181,7 @@ const DataMahasiswa = () => {
                 {loading ? (
                   Array.from({ length: pageSize }).map((_, i) => (
                     <tr key={`skel-${i}`}>
-                      {Array.from({ length: 8 }).map((_, j) => (
+                      {Array.from({ length: 7 }).map((_, j) => (
                         <td key={j} className="px-6 py-4">
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style={{ width: j === 1 ? '60%' : '40%' }}></div>
                         </td>
@@ -260,7 +190,7 @@ const DataMahasiswa = () => {
                   ))
                 ) : mahasiswaList.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                       <GraduationCap className="h-10 w-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                       <p className="text-sm">Tidak ada data mahasiswa ditemukan.</p>
                     </td>
@@ -296,12 +226,13 @@ const DataMahasiswa = () => {
                           {kelasNames}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
-                            {mhs.semester || '-'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                          {mhs.kelas?.map(k => k.kategori_kelas).join(', ') || '-'}
+                          {mhs.kelas?.length > 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                              {mhs.kelas.map(k => k.kategori_kelas || 'Reguler Pagi').join(', ')}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
                         </td>
                       </tr>
                     )

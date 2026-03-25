@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Auth\AuthenticationException;
 use Exception;
 
 class AuthService
@@ -15,7 +16,8 @@ class AuthService
         $user = User::where('username', $credentials['username'])->first();
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            throw new Exception('Username atau password salah.', 401);
+            // Throw standard Laravel AuthenticationException
+            throw new AuthenticationException('Username atau password salah.');
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
@@ -60,7 +62,16 @@ class AuthService
         ];
 
         if ($user->isMahasiswa() && $user->mahasiswa) {
-            $data['mahasiswa'] = [
+            // Count unique subjects from all classes the student is enrolled in
+            $totalSubjects = $user->mahasiswa->kelas()
+                ->with('subjects')
+                ->get()
+                ->flatMap(fn($k) => $k->subjects)
+                ->pluck('id')
+                ->unique()
+                ->count();
+
+            $studentData = [
                 'id'            => $user->mahasiswa->id,
                 'nim'           => $user->mahasiswa->nim,
                 'semester'      => $user->mahasiswa->semester,
@@ -70,6 +81,10 @@ class AuthService
                     'fakultas' => $user->mahasiswa->prodi->fakultas?->nama,
                 ] : null,
             ];
+
+            $data['mahasiswa']      = $studentData;
+            $data['student']        = $studentData; // Alias for frontend compatibility
+            $data['total_subjects'] = $totalSubjects;
         }
 
         if ($user->isDosen() && $user->dosen) {

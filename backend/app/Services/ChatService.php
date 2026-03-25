@@ -123,6 +123,73 @@ class ChatService
     }
 
     /**
+     * Get all members of a kelas (mahasiswa, dosen pengampu, PA).
+     */
+    public function getMembers(int $kelasId): array
+    {
+        $kelas = Kelas::with([
+            'dosen.user:id,name,avatar',
+            'mahasiswa.user:id,name,avatar',
+            'pembimbingAkademik.dosen.user:id,name,avatar',
+            'teachingAssignments.dosen.user:id,name,avatar'
+        ])->findOrFail($kelasId);
+
+        $members = collect();
+
+        // 1. Dosen Pengampu Utama
+        if ($kelas->dosen) {
+            $members->push([
+                'id'     => $kelas->dosen->user_id,
+                'name'   => $kelas->dosen->user->name,
+                'avatar' => $kelas->dosen->user->avatar ? url('uploads/profile/' . $kelas->dosen->user->avatar) : null,
+                'role'   => 'dosen',
+                'type'   => 'Pengampu Utama',
+            ]);
+        }
+
+        // 2. Team Teaching
+        foreach ($kelas->teachingAssignments as $ta) {
+            if ($ta->dosen) {
+                $members->push([
+                    'id'     => $ta->dosen->user_id,
+                    'name'   => $ta->dosen->user->name,
+                    'avatar' => $ta->dosen->user->avatar ? url('uploads/profile/' . $ta->dosen->user->avatar) : null,
+                    'role'   => 'dosen',
+                    'type'   => 'Team Teaching',
+                ]);
+            }
+        }
+
+        // 3. Pembimbing Akademik (PA)
+        foreach ($kelas->pembimbingAkademik as $pa) {
+            if ($pa->dosen) {
+                $members->push([
+                    'id'     => $pa->dosen->user_id,
+                    'name'   => $pa->dosen->user->name,
+                    'avatar' => $pa->dosen->user->avatar ? url('uploads/profile/' . $pa->dosen->user->avatar) : null,
+                    'role'   => 'dosen',
+                    'type'   => 'Pembimbing Akademik',
+                ]);
+            }
+        }
+
+        // 4. Mahasiswa
+        foreach ($kelas->mahasiswa as $mhs) {
+            if ($mhs->user) {
+                $members->push([
+                    'id'     => $mhs->user_id,
+                    'name'   => $mhs->user->name,
+                    'avatar' => $mhs->user->avatar ? url('uploads/profile/' . $mhs->user->avatar) : null,
+                    'role'   => 'mahasiswa',
+                    'type'   => 'Mahasiswa',
+                ]);
+            }
+        }
+
+        return $members->unique('id')->values()->toArray();
+    }
+
+    /**
      * Send notification to all kelas members about new chat message.
      */
     private function sendChatNotification(Chat $chat): void

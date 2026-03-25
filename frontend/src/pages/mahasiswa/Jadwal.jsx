@@ -13,7 +13,7 @@ const Jadwal = () => {
     const fetchJadwal = async () => {
       try {
         const res = await api.get('/mahasiswa/jadwal')
-        setJadwal(res.data)
+        setJadwal(res.data.data || res.data)
       } catch (error) {
         console.error('Gagal memuat jadwal', error)
       } finally {
@@ -83,7 +83,7 @@ const Jadwal = () => {
                         </div>
                         <div className="flex items-start gap-2 text-sm text-gray-500 pt-2 border-t border-gray-100 mt-2">
                           <div className="w-6 text-center text-gray-400 mt-0.5">👤</div>
-                          <div>{j.kelas?.dosen?.user?.name}</div>
+                          <div>{j.kelas?.teaching_assignments?.[0]?.dosen?.user?.name || j.kelas?.dosen?.user?.name || '-'}</div>
                         </div>
                       </div>
                     </li>

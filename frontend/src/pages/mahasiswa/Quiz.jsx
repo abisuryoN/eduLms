@@ -24,9 +24,10 @@ const Quiz = () => {
     const fetchKelas = async () => {
       try {
         const res = await api.get('/mahasiswa/kelas')
-        setKelasList(res.data)
-        if (res.data.length > 0) {
-          setSelectedKelasId(res.data[0].id)
+        setKelasList(res.data.data || res.data)
+        const list = res.data.data || res.data
+        if (list.length > 0) {
+          setSelectedKelasId(list[0].id)
         }
       } catch (error) {
         console.error('Gagal memuat kelas', error)
@@ -44,7 +45,7 @@ const Quiz = () => {
     const fetchQuiz = async () => {
       try {
         const res = await api.get(`/mahasiswa/kelas/${selectedKelasId}/quiz`)
-        setQuizList(res.data)
+        setQuizList(res.data.data || res.data)
       } catch (error) {
         toast.error('Gagal memuat daftar tugas/quiz')
       }
@@ -74,10 +75,11 @@ const Quiz = () => {
   const handleStartQuiz = async (quizId) => {
     try {
       const res = await api.get(`/mahasiswa/kelas/${selectedKelasId}/quiz/${quizId}`)
-      setActiveQuiz(res.data)
-      setSoalList(res.data.soal)
+      const data = res.data.data || res.data
+      setActiveQuiz(data)
+      setSoalList(data.soal)
       setAnswers({})
-      setTimeLeft(res.data.durasi_menit * 60)
+      setTimeLeft(data.durasi_menit * 60)
     } catch (error) {
        toast.error('Gagal memuat soal quiz. Cobalah beberapa saat lagi.')
     }
@@ -119,7 +121,7 @@ const Quiz = () => {
       setActiveQuiz(null)
       // Refresh list
       const quizRes = await api.get(`/mahasiswa/kelas/${selectedKelasId}/quiz`)
-      setQuizList(quizRes.data)
+      setQuizList(quizRes.data.data || quizRes.data)
     } catch (error) {
       toast.error(error.response?.data?.message || 'Terjadi kesalahan saat mengumpulkan')
     } finally {

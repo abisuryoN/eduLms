@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreProdiRequest;
+use App\Http\Requests\Admin\UpdateProdiRequest;
 use App\Services\ProdiService;
 use Illuminate\Http\Request;
 
 class ProdiController extends Controller
 {
+    use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
     protected $prodiService;
 
     public function __construct(ProdiService $prodiService)
@@ -23,9 +27,9 @@ class ProdiController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreProdiRequest $request)
     {
-        $prodi = $this->prodiService->create($request->all());
+        $prodi = $this->prodiService->create($request->validated());
         return response()->json([
             'success' => true,
             'message' => 'Prodi berhasil dibuat',
@@ -41,9 +45,9 @@ class ProdiController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateProdiRequest $request, $id)
     {
-        $prodi = $this->prodiService->update($id, $request->all());
+        $prodi = $this->prodiService->update($id, $request->validated());
         return response()->json([
             'success' => true,
             'message' => 'Prodi berhasil diupdate',

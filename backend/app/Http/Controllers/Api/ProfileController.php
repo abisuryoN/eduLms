@@ -34,8 +34,9 @@ class ProfileController extends Controller
         $user->load(['mahasiswa.prodi.fakultas', 'dosen']);
 
         return response()->json([
+            'success' => true,
             'message' => 'Profil berhasil diperbarui.',
-            'user'    => $user,
+            'data'    => $user,
         ]);
     }
 
@@ -51,8 +52,11 @@ class ProfileController extends Controller
         $filename = $this->profileService->uploadPhoto($request->user(), $request->file('photo'));
 
         return response()->json([
+            'success' => true,
             'message' => 'Foto profil berhasil diupload.',
-            'avatar'  => url('uploads/profile/' . $filename),
+            'data'    => [
+                'avatar'  => url('uploads/profile/' . $filename),
+            ]
         ]);
     }
 
@@ -64,7 +68,10 @@ class ProfileController extends Controller
         $unreadOnly = $request->boolean('unread_only', false);
         $data = $this->notifikasiService->getByUser($request->user()->id, $unreadOnly);
 
-        return response()->json($data);
+        return response()->json([
+            'success' => true,
+            'data'    => $data
+        ]);
     }
 
     /**
@@ -74,7 +81,10 @@ class ProfileController extends Controller
     {
         $this->notifikasiService->markAsRead($id);
 
-        return response()->json(['message' => 'Notifikasi ditandai sudah dibaca.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Notifikasi ditandai sudah dibaca.'
+        ]);
     }
 
     /**
@@ -84,6 +94,9 @@ class ProfileController extends Controller
     {
         $this->notifikasiService->markAllAsRead($request->user()->id);
 
-        return response()->json(['message' => 'Semua notifikasi ditandai sudah dibaca.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Semua notifikasi ditandai sudah dibaca.'
+        ]);
     }
 }

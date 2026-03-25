@@ -1,18 +1,19 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
-export const ProtectedRoute = ({ allowedRoles }) => {
+export const ProtectedRoute = ({ allowedRoles, children }) => {
   const { user, loading } = useAuth()
 
-  if (loading) return <div>Loading...</div>
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+      </div>
+    )
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />
-  }
-
-  // Check if first login
-  if (user.is_first_login && window.location.pathname !== '/change-password') {
-    return <Navigate to="/change-password" replace />
   }
 
   // Check role
@@ -24,5 +25,5 @@ export const ProtectedRoute = ({ allowedRoles }) => {
     return <Navigate to="/login" replace />
   }
 
-  return <Outlet />
+  return children ? children : <Outlet />
 }

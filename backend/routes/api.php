@@ -18,11 +18,13 @@ use App\Http\Controllers\Api\ProfileController;
 */
 
 // ── Public ───────────────────────────────────────
-Route::post('/login', [AuthController::class, 'login']);
-Route::get('/login-slides', [LoginSlideController::class, 'index']);
+Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::middleware('throttle:api')->get('/login-slides', [LoginSlideController::class, 'index']);
 
 // ── Authenticated ────────────────────────────────
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
@@ -174,5 +176,13 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::put('/kelas-chat/{kelas}/chat/{chat}', [ChatController::class, 'update']);
                 Route::delete('/kelas-chat/{kelas}/chat/{chat}', [ChatController::class, 'destroy']);
             });
+        // ── Shared Shared Chat/Class Info (all roles) ────
+        Route::get('/my-classes', [MahasiswaController::class, 'kelasList']); // Fallback logic in controller for roles
+        Route::get('/class/{kelas}/info', [ChatController::class, 'kelasInfo']);
+        Route::get('/class/{kelas}/members', [ChatController::class, 'members']);
+        Route::get('/class/{kelas}/messages', [ChatController::class, 'index']);
+        Route::post('/class/{kelas}/messages', [ChatController::class, 'store']);
+        Route::put('/class/{kelas}/messages/{chat}', [ChatController::class, 'update']);
+        Route::delete('/class/{kelas}/messages/{chat}', [ChatController::class, 'destroy']);
     });
 });

@@ -6,23 +6,25 @@ import {
   BookOpen,
   Calendar,
   LogOut,
-  Menu,
   X,
   UserCheck,
   Award,
   BookMarked,
   Bell,
   MessageSquare,
-  GraduationCap
+  GraduationCap,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { Avatar } from '../ui/Avatar'
 
-const Sidebar = ({ isOpen, setIsOpen }) => {
+const Sidebar = ({ isOpen, setIsOpen, collapsed, setCollapsed }) => {
   const { user, logout } = useAuth()
   const location = useLocation()
 
   const adminMenu = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Profil', path: '/profile', icon: UserCheck },
     { name: 'Data Dosen', path: '/admin/data-dosen', icon: UserCheck },
     { name: 'Data Mahasiswa', path: '/admin/data-mahasiswa', icon: GraduationCap },
     { name: 'Data Kelas', path: '/admin/data-kelas', icon: BookOpen },
@@ -39,15 +41,17 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const dosenMenu = [
     { name: 'Dashboard', path: '/dosen/dashboard', icon: LayoutDashboard },
+    { name: 'Profil', path: '/profile', icon: UserCheck },
     { name: 'Data Kelas', path: '/admin/data-kelas', icon: BookOpen },
     { name: 'Jadwal Hari Ini', path: '/dosen/dashboard', icon: Calendar },
     { name: 'Kelola Quiz', path: '/dosen/quiz', icon: BookMarked },
-    { name: 'Chat Kelas', path: '/dosen/chat', icon: MessageSquare }, // Added Chat
+    { name: 'Chat Kelas', path: '/dosen/chat', icon: MessageSquare },
     { name: 'Kirim Notifikasi', path: '/dosen/notifikasi', icon: Bell },
   ]
 
   const mahasiswaMenu = [
     { name: 'Dashboard', path: '/mahasiswa/dashboard', icon: LayoutDashboard },
+    { name: 'Profil', path: '/profile', icon: UserCheck },
     { name: 'Jadwal Kuliah', path: '/mahasiswa/jadwal', icon: Calendar },
     { name: 'Nilai Akademik', path: '/mahasiswa/nilai', icon: Award },
     { name: 'Absensi', path: '/mahasiswa/absensi', icon: UserCheck },
@@ -58,6 +62,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   if (user?.role === 'admin') menu = adminMenu
   if (user?.role === 'dosen') menu = dosenMenu
   if (user?.role === 'mahasiswa') menu = mahasiswaMenu
+
+  const toggleCollapse = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem('sidebar_collapsed', JSON.stringify(next))
+  }
 
   return (
     <>
@@ -71,16 +81,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 transform border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-all duration-300 ease-in-out
+          lg:static lg:translate-x-0
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${collapsed ? 'lg:w-[4.5rem]' : 'lg:w-72'}
+          ${isOpen ? 'w-72' : 'w-72'}
+        `}
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex h-16 shrink-0 items-center justify-between px-6 border-b border-gray-200 dark:border-gray-800">
-            <Link to="/" className="flex items-center gap-2 font-bold text-xl text-brand-600 dark:text-brand-400">
-              <BookOpen className="h-6 w-6" />
-              EduLMS
+          <div className={`flex h-16 shrink-0 items-center border-b border-gray-200 dark:border-gray-800 ${collapsed ? 'justify-center px-2' : 'justify-between px-6'}`}>
+            <Link to="/" className={`flex items-center gap-2 font-bold text-brand-600 dark:text-brand-400 ${collapsed ? 'text-lg' : 'text-xl'}`}>
+              <BookOpen className="h-6 w-6 shrink-0" />
+              {!collapsed && <span className="transition-opacity duration-200">EduLMS</span>}
             </Link>
             <button
               onClick={() => setIsOpen(false)}
@@ -111,7 +124,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+          <nav className={`flex-1 overflow-y-auto ${collapsed ? 'p-2' : 'p-4'} space-y-1`}>
             {menu.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname.startsWith(item.path)
@@ -120,32 +133,67 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  className={`group relative flex items-center rounded-xl text-sm font-medium transition-all duration-200 ${
+                    collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
+                  } ${
                     isActive
                       ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/50 dark:text-brand-400'
                       : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100'
                   }`}
                   onClick={() => setIsOpen(false)}
+                  title={collapsed ? item.name : undefined}
                 >
                   <Icon
                     className={`h-5 w-5 shrink-0 ${
                       isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400'
                     }`}
                   />
-                  {item.name}
+                  {!collapsed && item.name}
+                  
+                  {/* Tooltip for collapsed mode */}
+                  {collapsed && (
+                    <div className="absolute left-full ml-2 hidden group-hover:flex items-center z-50 pointer-events-none">
+                      <div className="bg-gray-900 dark:bg-gray-700 text-white text-xs font-medium py-1.5 px-3 rounded-lg shadow-lg whitespace-nowrap">
+                        {item.name}
+                      </div>
+                    </div>
+                  )}
                 </Link>
               )
             })}
           </nav>
 
+          {/* Collapse Toggle (desktop only) */}
+          <div className="hidden lg:flex border-t border-gray-200 dark:border-gray-800 p-2">
+            <button
+              onClick={toggleCollapse}
+              className={`flex items-center w-full rounded-xl text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-200 ${
+                collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
+              }`}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed ? (
+                <ChevronRight className="h-5 w-5 shrink-0" />
+              ) : (
+                <>
+                  <ChevronLeft className="h-5 w-5 shrink-0" />
+                  <span>Collapse</span>
+                </>
+              )}
+            </button>
+          </div>
+
           {/* Logout footer */}
-          <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+          <div className={`border-t border-gray-200 dark:border-gray-800 ${collapsed ? 'p-2' : 'p-4'}`}>
             <button
               onClick={logout}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              className={`flex w-full items-center rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${
+                collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
+              }`}
+              title={collapsed ? 'Logout' : undefined}
             >
-              <LogOut className="h-5 w-5" />
-              Logout
+              <LogOut className="h-5 w-5 shrink-0" />
+              {!collapsed && 'Logout'}
             </button>
           </div>
         </div>

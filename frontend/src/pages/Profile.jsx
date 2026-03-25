@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react'
 import { toast } from 'react-hot-toast'
-import { Camera, Save, User as UserIcon } from 'lucide-react'
+import { Camera, Save, User as UserIcon, ShieldCheck, Lock } from 'lucide-react'
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { Modal } from '../components/ui/Modal'
 
 const Profile = () => {
-  const { user, fetchUser } = useAuth()
+  const { user, refreshUser } = useAuth()
   
   // Get initial values from relation based on role
   const profileDetails = user?.role === 'mahasiswa' ? user?.mahasiswa : user?.dosen
@@ -27,6 +28,16 @@ const Profile = () => {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
 
+  // Password Modal State
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    new_password_confirmation: ''
+  })
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordErrors, setPasswordErrors] = useState({})
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -38,11 +49,36 @@ const Profile = () => {
     try {
       await api.put('/profile', formData)
       toast.success('Profil berhasil diperbarui')
-      await fetchUser() // Refresh auth context user data
+      await refreshUser() // Refresh auth context user data
     } catch (error) {
        toast.error(error.response?.data?.message || 'Gagal memperbarui profil')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault()
+    setPasswordSaving(true)
+    setPasswordErrors({})
+    
+    try {
+      await api.post('/change-password', passwordData)
+      toast.success('Password berhasil diperbarui')
+      setIsPasswordModalOpen(false)
+      setPasswordData({
+        current_password: '',
+        new_password: '',
+        new_password_confirmation: ''
+      })
+    } catch (error) {
+      if (error.response?.status === 422) {
+        setPasswordErrors(error.response.data.errors || {})
+      } else {
+        toast.error(error.response?.data?.message || 'Gagal memperbarui password')
+      }
+    } finally {
+      setPasswordSaving(false)
     }
   }
 
@@ -67,7 +103,7 @@ const Profile = () => {
         }
       })
       toast.success('Foto profil berhasil diperbarui')
-      await fetchUser() // Refresh global user object to get new avatar URL
+      await refreshUser() // Refresh global user object to get new avatar URL
     } catch (error) {
       toast.error(error.response?.data?.message || 'Gagal mengupload foto')
     } finally {
@@ -93,7 +129,7 @@ const Profile = () => {
               <div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-white shadow-xl bg-gray-100 flex items-center justify-center">
                 {user?.avatar ? (
                   <img 
-                    src={user.avatar.includes('http') ? user.avatar : `http://localhost:8000${user.avatar}`} 
+                    src={user.avatar.includes('http') ? user.avatar : `${api.defaults.baseURL.replace('/api', '')}${user.avatar}`} 
                     alt="Profile" 
                     className="w-full h-full object-cover" 
                   />
@@ -134,6 +170,26 @@ const Profile = () => {
             {user?.role === 'dosen' && (
                <p className="text-xs text-gray-400 mt-2 bg-white px-3 py-1 rounded-full border border-gray-100">ID: {profileDetails?.id_kerja}</p>
             )}
+          </Card>
+
+          {/* Security Card */}
+          <Card className="p-6 bg-amber-50 border-amber-100 border">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-amber-500 rounded-lg text-white">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-gray-900">Keamanan Akun</h3>
+            </div>
+            <p className="text-xs text-amber-800 mb-4 leading-relaxed">
+              Disarankan untuk memperbarui password Anda secara berkala demi keamanan data akademik Anda.
+            </p>
+            <Button 
+                variant="outline" 
+                className="w-full bg-white border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                onClick={() => setIsPasswordModalOpen(true)}
+            >
+              <Lock className="w-4 h-4 mr-2" /> Ganti Password
+            </Button>
           </Card>
         </div>
 
@@ -226,6 +282,56 @@ const Profile = () => {
         </div>
 
       </div>
+
+      {/* Change Password Modal */}
+      <Modal 
+        isOpen={isPasswordModalOpen} 
+        onClose={() => setIsPasswordModalOpen(false)} 
+        title="Ubah Password Akun"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handlePasswordChange} className="space-y-4">
+          <Input 
+            label="Password Saat Ini" 
+            type="password"
+            name="current_password"
+            value={passwordData.current_password}
+            onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+            error={passwordErrors.current_password}
+            required
+            placeholder="Masukkan password default/lama"
+          />
+          <Input 
+            label="Password Baru" 
+            type="password"
+            name="new_password"
+            value={passwordData.new_password}
+            onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+            error={passwordErrors.new_password}
+            required
+            placeholder="Minimal 8 karakter"
+          />
+          <Input 
+            label="Konfirmasi Password Baru" 
+            type="password"
+            name="new_password_confirmation"
+            value={passwordData.new_password_confirmation}
+            onChange={(e) => setPasswordData({...passwordData, new_password_confirmation: e.target.value})}
+            error={passwordErrors.new_password_confirmation}
+            required
+            placeholder="Ulangi password baru"
+          />
+          
+          <div className="pt-4 flex flex-col gap-3">
+             <Button type="submit" isLoading={passwordSaving} className="w-full py-2.5">
+               Simpan Password
+             </Button>
+             <Button type="button" variant="ghost" className="w-full" onClick={() => setIsPasswordModalOpen(false)}>
+               Batal
+             </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

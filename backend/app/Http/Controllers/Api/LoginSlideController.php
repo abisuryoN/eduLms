@@ -15,7 +15,11 @@ class LoginSlideController extends Controller
     public function index(): JsonResponse
     {
         $result = $this->service->getActiveSlides();
-        return response()->json($result, $result['success'] ? 200 : 500);
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'] ?? null,
+            'data'    => $result['data'] ?? $result
+        ], $result['success'] ? 200 : 500);
     }
 
     public function adminIndex(): JsonResponse

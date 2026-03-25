@@ -27,10 +27,32 @@ class MahasiswaController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $user      = $request->user();
+        
+        // Handle roles and missing records gracefully
+        if ($user->isAdmin()) {
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'nama'           => $user->name,
+                    'nim'            => 'ADMIN',
+                    'semester'       => '-',
+                    'prodi'          => 'Administrator System',
+                    'total_kelas'    => \App\Models\Kelas::count(),
+                    'jadwal_hari_ini' => [],
+                ]
+            ]);
+        }
+
         $mahasiswa = $user->mahasiswa;
+        if (!$mahasiswa) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data mahasiswa tidak ditemukan untuk akun ini.'
+            ], 404);
+        }
 
         $kelasList = $mahasiswa->kelas()
-            ->with(['mataKuliah', 'dosen.user', 'jadwal'])
+            ->with(['mataKuliah', 'dosen.user', 'jadwal', 'prodi.fakultas', 'teachingAssignments.dosen.user'])
             ->get();
 
         // Jadwal hari ini
@@ -40,8 +62,8 @@ class MahasiswaController extends Controller
             foreach ($kelas->jadwal as $jadwal) {
                 if ($jadwal->hari === $hari) {
                     $jadwalHariIni[] = [
-                        'kelas'      => $kelas->mataKuliah->nama . ' (' . $kelas->nama_kelas . ')',
-                        'dosen'      => $kelas->dosen->user->name,
+                        'kelas'      => ($kelas->mataKuliah->nama ?? 'N/A') . ' (' . $kelas->nama_kelas . ')',
+                        'dosen'      => $kelas->teachingAssignments->first()?->dosen->user->name ?? $kelas->dosen->user->name ?? '-',
                         'jam_mulai'  => $jadwal->jam_mulai,
                         'jam_selesai' => $jadwal->jam_selesai,
                         'gedung'     => $jadwal->gedung,
@@ -51,13 +73,23 @@ class MahasiswaController extends Controller
             }
         }
 
+        // Calculate total subjects (Active Classes definition)
+        $totalSubjects = $kelasList->flatMap(fn($k) => $k->subjects)
+            ->pluck('id')
+            ->unique()
+            ->count();
+
         return response()->json([
-            'nama'           => $user->name,
-            'nim'            => $mahasiswa->nim,
-            'semester'       => $mahasiswa->semester,
-            'prodi'          => $mahasiswa->prodi?->nama,
-            'total_kelas'    => $kelasList->count(),
-            'jadwal_hari_ini' => $jadwalHariIni,
+            'success' => true,
+            'data'    => [
+                'nama'           => $user->name,
+                'nim'            => $mahasiswa->nim,
+                'semester'       => $mahasiswa->semester,
+                'prodi'          => $mahasiswa->prodi?->nama,
+                'total_kelas'    => $totalSubjects, // Use standardized subject count
+                'total_subjects' => $totalSubjects, 
+                'jadwal_hari_ini' => $jadwalHariIni,
+            ]
         ]);
     }
 
@@ -70,12 +102,15 @@ class MahasiswaController extends Controller
         $mahasiswa = $request->user()->mahasiswa;
 
         $jadwal = \App\Models\Jadwal::whereHas('kelas.mahasiswa', fn($q) => $q->where('mahasiswa.id', $mahasiswa->id))
-            ->with('kelas.mataKuliah', 'kelas.dosen.user')
+            ->with(['kelas.mataKuliah', 'kelas.dosen.user', 'kelas.teachingAssignments.dosen.user'])
             ->orderByRaw("FIELD(hari, 'Senin','Selasa','Rabu','Kamis','Jumat','Sabtu')")
             ->orderBy('jam_mulai')
             ->get();
 
-        return response()->json($jadwal);
+        return response()->json([
+            'success' => true,
+            'data'    => $jadwal
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -84,14 +119,44 @@ class MahasiswaController extends Controller
 
     public function kelasList(Request $request): JsonResponse
     {
-        $mahasiswa = $request->user()->mahasiswa;
+        $user = $request->user();
+        \Illuminate\Support\Facades\Log::info("Fetching classes for user: {$user->email} (Role: {$user->role})");
 
-        $kelas = $mahasiswa->kelas()
-            ->with(['mataKuliah', 'dosen.user'])
-            ->withCount('materi')
-            ->get();
+        $query = \App\Models\Kelas::with(['mataKuliah', 'dosen.user', 'prodi.fakultas', 'teachingAssignments.dosen.user'])
+            ->withCount('materi');
 
-        return response()->json($kelas);
+        if ($user->isAdmin()) {
+            $kelas = $query->latest()->get();
+            \Illuminate\Support\Facades\Log::info('Admin detected, returning all ' . $kelas->count() . ' classes.');
+        } elseif ($user->isDosen()) {
+            if (!$user->dosen) {
+                \Illuminate\Support\Facades\Log::warning("User {$user->email} has role 'dosen' but no 'dosen' record.");
+                $kelas = collect([]);
+            } else {
+                $dosenId = $user->dosen->id;
+                $kelas = $query->where(function ($q) use ($dosenId) {
+                    $q->where('dosen_id', $dosenId)
+                      ->orWhereHas('teachingAssignments', fn($sq) => $sq->where('dosen_id', $dosenId))
+                      ->orWhereHas('pembimbingAkademik', fn($sq) => $sq->where('dosen_id', $dosenId));
+                })->get();
+                \Illuminate\Support\Facades\Log::info("Dosen ID {$dosenId} detected, returning " . $kelas->count() . " classes.");
+            }
+        } else {
+            // Mahasiswa
+            if (!$user->mahasiswa) {
+                \Illuminate\Support\Facades\Log::warning("User {$user->email} has role 'mahasiswa' but no 'mahasiswa' record.");
+                $kelas = collect([]);
+            } else {
+                $mahasiswaId = $user->mahasiswa->id;
+                $kelas = $query->whereHas('mahasiswa', fn($q) => $q->where('mahasiswa.id', $mahasiswaId))->get();
+                \Illuminate\Support\Facades\Log::info("Mahasiswa ID {$mahasiswaId} detected, returning " . $kelas->count() . " classes.");
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $kelas
+        ]);
     }
 
     public function materiByKelas(Kelas $kelas, Request $request): JsonResponse
@@ -102,7 +167,10 @@ class MahasiswaController extends Controller
             ->orderBy('pertemuan')
             ->get();
 
-        return response()->json($materi);
+        return response()->json([
+            'success' => true,
+            'data'    => $materi
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -128,7 +196,10 @@ class MahasiswaController extends Controller
                 return $quiz;
             });
 
-        return response()->json($quizzes);
+        return response()->json([
+            'success' => true,
+            'data'    => $quizzes
+        ]);
     }
 
     public function quizDetail(Kelas $kelas, \App\Models\Quiz $quiz, Request $request): JsonResponse
@@ -139,7 +210,10 @@ class MahasiswaController extends Controller
         // Hide jawaban_benar from students
         $quiz->soal->each(fn($s) => $s->makeHidden('jawaban_benar'));
 
-        return response()->json($quiz);
+        return response()->json([
+            'success' => true,
+            'data'    => $quiz
+        ]);
     }
 
     public function submitQuiz(Request $request, Kelas $kelas, \App\Models\Quiz $quiz): JsonResponse
@@ -156,8 +230,9 @@ class MahasiswaController extends Controller
         $result = $this->quizService->submitJawaban($quiz->id, $mahasiswaId, $data['jawaban']);
 
         return response()->json([
+            'success' => true,
             'message' => 'Quiz berhasil dikumpulkan.',
-            ...$result,
+            'data'    => $result,
         ]);
     }
 
@@ -173,8 +248,8 @@ class MahasiswaController extends Controller
             ->with('kelas.mataKuliah')
             ->get()
             ->map(fn($n) => [
-                'mata_kuliah' => $n->kelas->mataKuliah->nama,
-                'sks'         => $n->kelas->mataKuliah->sks,
+                'mata_kuliah' => $n->kelas->mataKuliah->nama ?? 'N/A',
+                'sks'         => $n->kelas->mataKuliah->sks ?? 0,
                 'tugas'       => $n->tugas,
                 'uts'         => $n->uts,
                 'uas'         => $n->uas,
@@ -182,7 +257,10 @@ class MahasiswaController extends Controller
                 'grade'       => $n->grade,
             ]);
 
-        return response()->json($nilai);
+        return response()->json([
+            'success' => true,
+            'data'    => $nilai
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -195,7 +273,10 @@ class MahasiswaController extends Controller
 
         $data = $this->absensiService->getMahasiswaAbsensi($mahasiswaId);
 
-        return response()->json($data);
+        return response()->json([
+            'success' => true,
+            'data'    => $data
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -211,7 +292,10 @@ class MahasiswaController extends Controller
             ->orderBy('created_at')
             ->paginate(50);
 
-        return response()->json($messages);
+        return response()->json([
+            'success' => true,
+            'data'    => $messages
+        ]);
     }
 
     public function chatSend(Request $request, Kelas $kelas): JsonResponse
@@ -226,7 +310,11 @@ class MahasiswaController extends Controller
             'pesan'    => $data['pesan'],
         ]);
 
-        return response()->json($chat->load('user:id,name,avatar'), 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Pesan terkirim.',
+            'data'    => $chat->load('user:id,name,avatar')
+        ], 201);
     }
 
     /* ══════════════════════════════════════════════

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Calendar, Users, BookOpen, Clock, AlertCircle } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { Calendar, Users, BookOpen, Clock, AlertCircle, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
@@ -18,6 +19,10 @@ const Dashboard = () => {
   const [selectedKelasId, setSelectedKelasId] = useState(null)
   const [selectedMataKuliah, setSelectedMataKuliah] = useState('')
 
+  const location = useLocation()
+  const mustChangePassword = location.state?.mustChangePassword || false
+
+  // 1. Fetch Dashboard Data
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -25,16 +30,27 @@ const Dashboard = () => {
           api.get('/dosen/jadwal-hari-ini'),
           api.get('/dosen/kelas')
         ])
-        setJadwal(resJadwal.data)
-        setKelas(resKelas.data)
+        setJadwal(resJadwal.data.data || resJadwal.data)
+        setKelas(resKelas.data.data || resKelas.data)
       } catch (error) {
         console.error('Gagal mengambil data dosen', error)
       } finally {
         setLoading(false)
       }
     }
-    fetchDashboardData()
-  }, [])
+    if (user) fetchDashboardData()
+  }, [user?.id])
+
+  // 2. Security Notification
+  useEffect(() => {
+    if (user?.is_first_login || mustChangePassword) {
+      toast(`Halo ${user?.name}, Anda wajib memperbarui password demi keamanan data akademik.`, {
+        icon: '⚠️',
+        duration: 10000,
+        id: 'first-login-alert'
+      })
+    }
+  }, [user?.id, user?.is_first_login, mustChangePassword])
 
   const handleOpenAbsensi = (kelasId, mkName) => {
     setSelectedKelasId(kelasId)
@@ -175,6 +191,29 @@ const Dashboard = () => {
           kelasId={selectedKelasId}
           mataKuliah={selectedMataKuliah}
         />
+      )}
+
+      {(user?.is_first_login || mustChangePassword) && (
+        <Card className="bg-amber-50 border-amber-500 border-2 animate-pulse shadow-lg">
+          <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-500 rounded-lg text-white">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-amber-900 text-lg">Wajib Ganti Password!</h3>
+                <p className="text-amber-800 text-sm">
+                  Keamanan akun Anda sangat penting. Harap ganti password default Anda segera.
+                </p>
+              </div>
+            </div>
+            <Link to="/profile">
+              <Button className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-8 h-12 rounded-xl shadow-md border-none whitespace-nowrap">
+                Ganti Password Sekarang
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

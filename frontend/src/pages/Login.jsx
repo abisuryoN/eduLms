@@ -72,13 +72,17 @@ const Login = () => {
 
     // Redirect if already logged in
     if (user) {
-        if (user.is_first_login) return <Navigate to="/change-password" replace />
         return <Navigate to={`/${user.role}/dashboard`} replace />
     }
 
     const handleSubmit = async (e) => {
-        e.preventDefault()
+        // 1. Prevent browser default behavior
+        if (e) {
+            e.preventDefault()
+            e.stopPropagation()
+        }
 
+        // 2. Validate Captcha
         if (captchaInput.toLowerCase() !== captchaText.toLowerCase()) {
             toast.error('Jawaban captcha salah. Silakan coba lagi.')
             reloadCaptcha()
@@ -86,19 +90,30 @@ const Login = () => {
             return
         }
 
+        // 3. Handle Forgot Password (REAL)
         if (view === 'forgot-password') {
             setIsLoading(true)
-            setTimeout(() => {
-                toast.success(`Link reset password telah dikirim ke ${email}`)
+            try {
+                const response = await api.post('/forgot-password', { email });
+                toast.success(response.data.message || `Link reset password telah dikirim ke ${email}`);
+                setView('login');
+            } catch (error) {
+                console.error('Forgot password error:', error.response?.data || error.message);
+                const errorMsg = error.response?.data?.message || 'Gagal mengirim link reset password';
+                toast.error(errorMsg);
+            } finally {
                 setIsLoading(false)
-                setView('login')
-            }, 1500)
+            }
             return
         }
 
+        // 4. Handle Login
         setIsLoading(true)
+        console.log('Initiating login for:', username)
+
         try {
             const data = await login(username, password)
+            console.log('Login success data:', data)
             
             // Save Remember Me
             if (rememberMe) {
@@ -108,13 +123,21 @@ const Login = () => {
             }
 
             toast.success(data.message || 'Login berhasil')
-            if (data.user.is_first_login) {
-                navigate('/change-password', { replace: true })
-            } else {
-                navigate(`/${data.user.role}/dashboard`, { replace: true })
-            }
+            
+            // Navigate to Dashboard, but pass state if they MUST change password
+            const rolePath = data.user?.role || 'admin'
+            const mustChangePassword = data.user?.is_first_login || false
+            
+            navigate(`/${rolePath}/dashboard`, { 
+                replace: true,
+                state: { mustChangePassword } 
+            })
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Gagal login, periksa kembali data Anda')
+            console.error('Login error detail:', error.response?.data || error.message)
+            const errorMsg = error.response?.data?.message || 'Gagal login, periksa kembali data Anda'
+            toast.error(errorMsg)
+            
+            // Reset security check on failure
             reloadCaptcha()
             setCaptchaInput('')
         } finally {

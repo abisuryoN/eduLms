@@ -1,16 +1,16 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit2, Trash2, Search } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { Plus, Edit2, Trash2, Search, Filter, Loader2, Calendar } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../lib/api'
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
+import { Card, CardContent } from '../../components/ui/Card'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { Pagination } from '../../components/ui/Pagination'
+import FilterBar from '../../components/ui/FilterBar'
 
 const JadwalAdmin = () => {
   const [jadwalList, setJadwalList] = useState([])
-  const [kelasList, setKelasList] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Modal
@@ -24,15 +24,27 @@ const JadwalAdmin = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  // Cascading Filters State
+  // Cascading Filter State
   const [fakultasList, setFakultasList] = useState([])
   const [prodiList, setProdiList] = useState([])
-  const [semesterList, setSemesterList] = useState([])
-  
+  const [kelasList, setKelasList] = useState([])
+
   const [filterFakultas, setFilterFakultas] = useState('')
   const [filterProdi, setFilterProdi] = useState('')
   const [filterSemester, setFilterSemester] = useState('')
+  const [filterKategoriKelas, setFilterKategoriKelas] = useState('')
   const [filterKelas, setFilterKelas] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debounceRef = useRef(null)
+
+  // Form cascading filters (for modal)
+  const [formFakultasList, setFormFakultasList] = useState([])
+  const [formProdiList, setFormProdiList] = useState([])
+  const [formKelasList, setFormKelasList] = useState([])
+  const [formFakultas, setFormFakultas] = useState('')
+  const [formProdi, setFormProdi] = useState('')
+  const [formSemester, setFormSemester] = useState('')
+  const [formKategoriKelas, setFormKategoriKelas] = useState('')
 
   const [formData, setFormData] = useState({
     kelas_id: '',
@@ -46,105 +58,112 @@ const JadwalAdmin = () => {
 
   const hariOptions = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
 
+  // Load reference data
   useEffect(() => {
     const fetchRef = async () => {
       try {
-        const [resRef] = await Promise.all([
-          api.get('/admin/referensi/options')
-        ])
-        setFakultasList(resRef.data.fakultas || [])
-        setSemesterList([1, 2, 3, 4, 5, 6, 7, 8])
+        const res = await api.get('/admin/referensi/options')
+        setFakultasList(res.data.data?.fakultas || [])
+        setFormFakultasList(res.data.data?.fakultas || [])
       } catch (error) {
         console.error('Failed to load references', error)
-      } finally {
-        setLoading(false)
       }
     }
     fetchRef()
   }, [])
 
+  // Filter: Fakultas → Prodi
   useEffect(() => {
-    if (!filterFakultas) {
-      setProdiList([])
-      setFilterProdi('')
-      setFilterSemester('')
-      setFilterKelas('')
-      setKelasList([])
-      setJadwalList([])
-      return
-    }
+    setProdiList([])
+    setFilterProdi('')
+    setFilterSemester('')
+    setFilterKategoriKelas('')
+    setFilterKelas('')
+    setKelasList([])
+    if (!filterFakultas) return
     const fetchProdi = async () => {
       try {
         const res = await api.get(`/admin/prodi?fakultas_id=${filterFakultas}`)
-        setProdiList(res.data)
-        setFilterProdi('')
-        setFilterSemester('')
-        setFilterKelas('')
-        setKelasList([])
-        setJadwalList([])
-      } catch (error) {}
+        setProdiList(res.data.data?.data || res.data.data || [])
+      } catch { setProdiList([]) }
     }
     fetchProdi()
   }, [filterFakultas])
 
+  // Filter: Prodi + Semester + Kategori → Kelas
   useEffect(() => {
-    if (!filterProdi || !filterSemester) {
-        setKelasList([])
-        setFilterKelas('')
-        setJadwalList([])
-        return
-    }
+    setKelasList([])
+    setFilterKelas('')
+    if (!filterProdi || !filterSemester) return
     const fetchKelas = async () => {
-        try {
-            const res = await api.get(`/admin/kelas?fakultas_id=${filterFakultas}&prodi_id=${filterProdi}&semester=${filterSemester}&per_page=100`)
-            setKelasList(res.data.data || res.data)
-            setFilterKelas('')
-            setJadwalList([])
-        } catch (error) {}
+      try {
+        const params = new URLSearchParams({
+          fakultas_id: filterFakultas,
+          prodi_id: filterProdi,
+          semester: filterSemester,
+          per_page: '100'
+        })
+        if (filterKategoriKelas) params.set('kategori_kelas', filterKategoriKelas)
+        const res = await api.get(`/admin/kelas?${params.toString()}`)
+        setKelasList(res.data.data?.data || res.data.data || [])
+      } catch { }
     }
     fetchKelas()
-  }, [filterProdi, filterSemester, filterFakultas])
+  }, [filterProdi, filterSemester, filterFakultas, filterKategoriKelas])
 
-  const fetchJadwalKelas = async (kelasId) => {
-    if (!kelasId) {
-        setJadwalList([])
-        return
-    }
+  // Debounce search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setCurrentPage(1)
+    }, 300)
+    return () => clearTimeout(debounceRef.current)
+  }, [searchQuery])
+
+  // Fetch jadwal — default show ALL, filter narrows down
+  const fetchJadwal = useCallback(async () => {
     setLoading(true)
     try {
-        const res = await api.get(`/admin/jadwal?kelas_id=${kelasId}`)
-        setJadwalList(res.data)
+      const params = new URLSearchParams()
+      if (filterFakultas) params.set('fakultas_id', filterFakultas)
+      if (filterProdi) params.set('prodi_id', filterProdi)
+      if (filterSemester) params.set('semester', filterSemester)
+      if (filterKategoriKelas) params.set('kategori_kelas', filterKategoriKelas)
+      if (filterKelas) params.set('kelas_id', filterKelas)
+      if (debouncedSearch) params.set('search', debouncedSearch)
+
+      const res = await api.get(`/admin/jadwal?${params.toString()}`)
+      const data = res.data.data
+      setJadwalList(Array.isArray(data) ? data : data?.data || [])
     } catch (error) {
-        toast.error('Gagal memuat data jadwal')
+      toast.error('Gagal memuat data jadwal')
+      setJadwalList([])
     } finally {
-        setLoading(false)
+      setLoading(false)
     }
-  }
+  }, [filterFakultas, filterProdi, filterSemester, filterKategoriKelas, filterKelas, debouncedSearch])
 
   useEffect(() => {
-    fetchJadwalKelas(filterKelas)
-  }, [filterKelas])
+    fetchJadwal()
+  }, [fetchJadwal])
 
-  // Room Formatting Logic: R.[Gedung].[Lantai].[Ruangan]
+  // Room Formatting Logic
   const formatRoom = (gedung, lantai, ruangan) => {
     if (!gedung && !lantai && !ruangan) return 'Online / TBA'
-    const g = gedung || '?'
-    const l = lantai || '?'
-    const r = ruangan || '?'
-    return `R.${g}.${l}.${r}`
+    return `R.${gedung || '?'}.${lantai || '?'}.${ruangan || '?'}`
   }
 
-  // Client-side Filtering & Pagination
+  // Client-side search on already-loaded data
   const filteredJadwal = useMemo(() => {
-    return jadwalList.filter(j => 
-      j.hari?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.kelas?.mata_kuliah?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.kelas?.nama_kelas?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.kelas?.dosen?.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.gedung?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.ruangan?.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!debouncedSearch) return jadwalList
+    return jadwalList.filter(j =>
+      j.hari?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      j.kelas?.nama_kelas?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      j.gedung?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      j.ruangan?.toLowerCase().includes(debouncedSearch.toLowerCase())
     )
-  }, [jadwalList, searchQuery])
+  }, [jadwalList, debouncedSearch])
 
   const paginatedJadwal = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
@@ -155,7 +174,42 @@ const JadwalAdmin = () => {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, pageSize])
+  }, [pageSize])
+
+  // --- Modal form cascading ---
+  useEffect(() => {
+    setFormProdiList([])
+    setFormProdi('')
+    setFormSemester('')
+    setFormKategoriKelas('')
+    setFormKelasList([])
+    if (!formFakultas) return
+    const fetchProdi = async () => {
+      try {
+        const res = await api.get(`/admin/prodi?fakultas_id=${formFakultas}`)
+        setFormProdiList(res.data.data?.data || res.data.data || [])
+      } catch { setFormProdiList([]) }
+    }
+    fetchProdi()
+  }, [formFakultas])
+
+  useEffect(() => {
+    setFormKelasList([])
+    if (!formProdi || !formSemester) return
+    const fetchKelas = async () => {
+      try {
+        const params = new URLSearchParams({
+          prodi_id: formProdi,
+          semester: formSemester,
+          per_page: '100'
+        })
+        if (formKategoriKelas) params.set('kategori_kelas', formKategoriKelas)
+        const res = await api.get(`/admin/kelas?${params.toString()}`)
+        setFormKelasList(res.data.data?.data || res.data.data || [])
+      } catch { }
+    }
+    fetchKelas()
+  }, [formProdi, formSemester, formKategoriKelas])
 
   const handleOpenModal = (mode, jadwal = null) => {
     setModalMode(mode)
@@ -164,16 +218,25 @@ const JadwalAdmin = () => {
       setFormData({
         kelas_id: jadwal.kelas_id,
         hari: jadwal.hari,
-        jam_mulai: jadwal.jam_mulai.substring(0, 5), // Format HH:mm
+        jam_mulai: jadwal.jam_mulai.substring(0, 5),
         jam_selesai: jadwal.jam_selesai.substring(0, 5),
         gedung: jadwal.gedung || '',
         lantai: jadwal.lantai || '',
         ruangan: jadwal.ruangan || '',
       })
+      // Pre-fill form filters from existing jadwal
+      setFormFakultas('')
+      setFormProdi('')
+      setFormSemester('')
+      setFormKategoriKelas('')
     } else {
       setSelectedJadwal(null)
+      setFormFakultas('')
+      setFormProdi('')
+      setFormSemester('')
+      setFormKategoriKelas('')
       setFormData({
-        kelas_id: kelasList[0]?.id || '',
+        kelas_id: '',
         hari: 'Senin',
         jam_mulai: '08:00',
         jam_selesai: '09:40',
@@ -197,7 +260,7 @@ const JadwalAdmin = () => {
         toast.success('Jadwal berhasil diupdate')
       }
       setIsModalOpen(false)
-      fetchJadwalKelas(filterKelas)
+      fetchJadwal()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Gagal menyimpan jadwal')
     } finally {
@@ -210,19 +273,24 @@ const JadwalAdmin = () => {
       try {
         await api.delete(`/admin/jadwal/${id}`)
         toast.success('Jadwal berhasil dihapus')
-        fetchJadwalKelas(filterKelas)
+        fetchJadwal()
       } catch (error) {
         toast.error('Gagal menghapus jadwal')
       }
     }
   }
 
+  const selectClass = 'block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2 px-3 transition-colors disabled:opacity-50'
+
   return (
     <div className="space-y-6">
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Jadwal Kuliah</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Calendar className="h-7 w-7 text-brand-600 dark:text-brand-400" />
+            Jadwal Kuliah
+          </h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Kelola jadwal pertemuan untuk setiap kelas.
           </p>
         </div>
@@ -234,81 +302,32 @@ const JadwalAdmin = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {/* Cascading Filter */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Fakultas</label>
-                <select
-                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500"
-                    value={filterFakultas}
-                    onChange={(e) => setFilterFakultas(e.target.value)}
-                >
-                    <option value="">-- Pilih Fakultas --</option>
-                    {fakultasList.map(f => (
-                        <option key={f.id} value={f.id}>{f.kode} - {f.nama}</option>
-                    ))}
-                </select>
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Prodi</label>
-                <select
-                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500 disabled:opacity-50"
-                    value={filterProdi}
-                    onChange={(e) => setFilterProdi(e.target.value)}
-                    disabled={!filterFakultas}
-                >
-                    <option value="">-- Pilih Prodi --</option>
-                    {prodiList.map(p => (
-                        <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
-                    ))}
-                </select>
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Semester</label>
-                <select
-                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500 disabled:opacity-50"
-                    value={filterSemester}
-                    onChange={(e) => setFilterSemester(e.target.value)}
-                    disabled={!filterProdi}
-                >
-                    <option value="">-- Pilih Semester --</option>
-                    {semesterList.map(s => (
-                        <option key={s} value={s}>Semester {s}</option>
-                    ))}
-                </select>
-            </div>
-            <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Kelas</label>
-                <select
-                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500 disabled:opacity-50"
-                    value={filterKelas}
-                    onChange={(e) => setFilterKelas(e.target.value)}
-                    disabled={!filterSemester || kelasList.length === 0}
-                >
-                    <option value="">-- Pilih Kelas --</option>
-                    {kelasList.map(k => (
-                        <option key={k.id} value={k.id}>{k.nama_kelas} - {k.mata_kuliah?.nama}</option>
-                    ))}
-                </select>
-            </div>
-        </div>
-        
-        <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
-            <div className="relative w-full sm:max-w-xs">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                    type="text"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 rounded-xl sm:text-sm"
-                    placeholder="Cari dalam jadwal..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                />
-            </div>
-            <div>Menampilkan {filteredJadwal.length} jadwal</div>
-        </div>
+      {/* Filters — using reusable FilterBar */}
+      <FilterBar
+        fakultasList={fakultasList}
+        prodiList={prodiList}
+        kelasList={kelasList}
+        selectedFakultas={filterFakultas}
+        selectedProdi={filterProdi}
+        selectedSemester={filterSemester}
+        selectedKategoriKelas={filterKategoriKelas}
+        selectedKelas={filterKelas}
+        searchQuery={searchQuery}
+        onFakultasChange={setFilterFakultas}
+        onProdiChange={setFilterProdi}
+        onSemesterChange={setFilterSemester}
+        onKategoriKelasChange={setFilterKategoriKelas}
+        onKelasChange={setFilterKelas}
+        onSearchChange={setSearchQuery}
+        showSemester={true}
+        showKategoriKelas={true}
+        showKelas={true}
+        showSearch={true}
+        searchPlaceholder="Cari dalam jadwal..."
+      />
+
+      <div className="flex justify-end text-sm text-gray-500 dark:text-gray-400">
+        Menampilkan {filteredJadwal.length} jadwal
       </div>
 
       <Card>
@@ -320,24 +339,22 @@ const JadwalAdmin = () => {
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Kelas / Matkul</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Dosen</th>
                 <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">Lokasi</th>
+                <th scope="col" className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">Kategori</th>
                 <th scope="col" className="px-3 py-3.5 text-center text-sm font-semibold text-gray-900 dark:text-gray-100 w-32">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Memuat data...</td>
-                </tr>
-              ) : !filterKelas ? (
-                <tr>
-                  <td colSpan="5" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Silakan lengkapi filter hingga memilih kelas terlebih dahulu.
+                  <td colSpan="6" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                    Memuat data...
                   </td>
                 </tr>
               ) : paginatedJadwal.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                    {searchQuery ? 'Tidak ada hasil yang cocok dengan pencarian.' : 'Belum ada jadwal untuk kelas ini.'}
+                  <td colSpan="6" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {searchQuery ? 'Tidak ada hasil yang cocok dengan pencarian.' : 'Belum ada jadwal.'}
                   </td>
                 </tr>
               ) : (
@@ -345,19 +362,27 @@ const JadwalAdmin = () => {
                   <tr key={jadwal.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-gray-100 sm:pl-6">
                       <div className="font-semibold text-brand-600 dark:text-brand-400">{jadwal.hari}</div>
-                      <div className="text-gray-500 dark:text-gray-400">{jadwal.jam_mulai.substring(0,5)} - {jadwal.jam_selesai.substring(0,5)}</div>
+                      <div className="text-gray-500 dark:text-gray-400">{jadwal.jam_mulai?.substring(0, 5)} - {jadwal.jam_selesai?.substring(0, 5)}</div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                       <div className="font-medium text-gray-900 dark:text-gray-200">{jadwal.kelas?.mata_kuliah?.nama || '-'}</div>
                       <div className="text-xs">Kelas: {jadwal.kelas?.nama_kelas}</div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                      {jadwal.kelas?.dosen?.user?.name || '-'}
+                      {jadwal.kelas?.teaching_assignments?.[0]?.dosen?.user?.name || jadwal.kelas?.dosen?.user?.name || '-'}
+                      {jadwal.kelas?.teaching_assignments?.length > 1 && (
+                        <span className="text-[10px] text-brand-500 block">+{jadwal.kelas.teaching_assignments.length - 1} dosen lainnya</span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
                       <div className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md inline-block">
                         {formatRoom(jadwal.gedung, jadwal.lantai, jadwal.ruangan)}
                       </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-4 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300">
+                        {jadwal.kelas?.kategori_kelas || 'Reguler Pagi'}
+                      </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-center text-sm font-medium space-x-2">
                       <Button variant="secondary" size="sm" onClick={() => handleOpenModal('edit', jadwal)}>
@@ -385,38 +410,85 @@ const JadwalAdmin = () => {
         )}
       </Card>
 
-      <Modal 
-        isOpen={isModalOpen} 
+      {/* Add/Edit Modal — with cascading: Fakultas → Prodi → Semester → Kategori → Kelas */}
+      <Modal
+        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={modalMode === 'add' ? 'Tambah Jadwal Baru' : 'Edit Jadwal'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Pilih Kelas</label>
-            <select
-              className="block w-full rounded-xl border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2 px-3 border transition-colors"
-              value={formData.kelas_id}
-              onChange={(e) => setFormData({...formData, kelas_id: e.target.value})}
-              required
-            >
-              <option value="" disabled className="dark:bg-gray-800">Pilih Kelas...</option>
-              {kelasList.map(k => (
-                <option key={k.id} value={k.id} className="dark:bg-gray-800">{k.mata_kuliah?.nama} - {k.nama_kelas}</option>
-              ))}
-            </select>
-          </div>
+          {modalMode === 'add' && (
+            <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pilih Kelas</p>
+              {/* 1. Fakultas */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fakultas</label>
+                <select className={selectClass} value={formFakultas} onChange={(e) => setFormFakultas(e.target.value)}>
+                  <option value="">-- Pilih Fakultas --</option>
+                  {formFakultasList.map(f => <option key={f.id} value={f.id}>{f.nama}</option>)}
+                </select>
+              </div>
+              {/* 2. Prodi */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Program Studi</label>
+                <select className={selectClass} value={formProdi} onChange={(e) => setFormProdi(e.target.value)} disabled={!formFakultas}>
+                  <option value="">-- Pilih Prodi --</option>
+                  {formProdiList.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                </select>
+              </div>
+              {/* 3. Semester */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester</label>
+                <select className={selectClass} value={formSemester} onChange={(e) => setFormSemester(e.target.value)} disabled={!formProdi}>
+                  <option value="">-- Pilih Semester --</option>
+                  {[1,2,3,4,5,6,7,8].map(s => <option key={s} value={s}>Semester {s}</option>)}
+                </select>
+              </div>
+              {/* 4. Kategori Kelas */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kategori Kelas</label>
+                <select className={selectClass} value={formKategoriKelas} onChange={(e) => setFormKategoriKelas(e.target.value)}>
+                  <option value="">Semua Kategori</option>
+                  <option value="Reguler Pagi">Reguler Pagi</option>
+                  <option value="Reguler Sore">Reguler Sore</option>
+                  <option value="Karyawan">Karyawan</option>
+                </select>
+              </div>
+              {/* 5. Kelas */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kelas</label>
+                <select
+                  className={selectClass}
+                  value={formData.kelas_id}
+                  onChange={(e) => setFormData({ ...formData, kelas_id: e.target.value })}
+                  required
+                  disabled={formKelasList.length === 0}
+                >
+                  <option value="" disabled>Pilih Kelas...</option>
+                  {formKelasList.map(k => (
+                    <option key={k.id} value={k.id}>{k.nama_kelas}{k.mata_kuliah ? ` - ${k.mata_kuliah.nama}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {modalMode === 'edit' && (
+            <div>
+              <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Kelas (terpilih)</label>
+              <select className={selectClass} value={formData.kelas_id} onChange={(e) => setFormData({ ...formData, kelas_id: e.target.value })} required>
+                <option value="" disabled>Pilih Kelas...</option>
+                {kelasList.map(k => (
+                  <option key={k.id} value={k.id}>{k.nama_kelas}{k.mata_kuliah ? ` - ${k.mata_kuliah.nama}` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Hari</label>
-            <select
-              className="block w-full rounded-xl border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2 px-3 border transition-colors"
-              value={formData.hari}
-              onChange={(e) => setFormData({...formData, hari: e.target.value})}
-              required
-            >
-              {hariOptions.map(h => (
-                <option key={h} value={h} className="dark:bg-gray-800">{h}</option>
-              ))}
+            <select className={selectClass} value={formData.hari} onChange={(e) => setFormData({ ...formData, hari: e.target.value })} required>
+              {hariOptions.map(h => <option key={h} value={h}>{h}</option>)}
             </select>
           </div>
 
@@ -425,40 +497,22 @@ const JadwalAdmin = () => {
               label="Jam Mulai"
               type="time"
               value={formData.jam_mulai}
-              onChange={(e) => setFormData({...formData, jam_mulai: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, jam_mulai: e.target.value })}
               required
             />
             <Input
               label="Jam Selesai"
               type="time"
               value={formData.jam_selesai}
-              onChange={(e) => setFormData({...formData, jam_selesai: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, jam_selesai: e.target.value })}
               required
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <Input
-              label="Gedung"
-              type="text"
-              placeholder="Misal: 5"
-              value={formData.gedung}
-              onChange={(e) => setFormData({...formData, gedung: e.target.value})}
-            />
-            <Input
-              label="Lantai"
-              type="text"
-              placeholder="Misal: 4"
-              value={formData.lantai}
-              onChange={(e) => setFormData({...formData, lantai: e.target.value})}
-            />
-            <Input
-              label="Ruangan"
-              type="text"
-              placeholder="Misal: 2"
-              value={formData.ruangan}
-              onChange={(e) => setFormData({...formData, ruangan: e.target.value})}
-            />
+            <Input label="Gedung" type="text" placeholder="Misal: 5" value={formData.gedung} onChange={(e) => setFormData({ ...formData, gedung: e.target.value })} />
+            <Input label="Lantai" type="text" placeholder="Misal: 4" value={formData.lantai} onChange={(e) => setFormData({ ...formData, lantai: e.target.value })} />
+            <Input label="Ruangan" type="text" placeholder="Misal: 2" value={formData.ruangan} onChange={(e) => setFormData({ ...formData, ruangan: e.target.value })} />
           </div>
 
           <div className="mt-6 flex justify-end gap-3">

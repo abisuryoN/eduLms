@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Pagination } from '../../components/ui/Pagination'
 import { Search, Users, Filter, Loader2, ChevronDown, ChevronRight, BookOpen } from 'lucide-react'
 import api from '../../lib/api'
+import FilterBar from '../../components/ui/FilterBar'
 
 const DataDosen = () => {
   // Reference data
@@ -34,8 +35,7 @@ const DataDosen = () => {
   useEffect(() => {
     const fetchRef = async () => {
       try {
-        const res = await api.get('/admin/referensi/options')
-        setFakultasList(res.data.fakultas || [])
+        setFakultasList(res.data.data?.fakultas || [])
       } catch {
         // silent
       } finally {
@@ -54,7 +54,7 @@ const DataDosen = () => {
     const fetchProdi = async () => {
       try {
         const res = await api.get(`/admin/prodi?fakultas_id=${selectedFakultas}`)
-        setProdiList(res.data.data || res.data)
+        setProdiList(res.data.data?.data || res.data.data || [])
       } catch {
         // silent
       }
@@ -84,7 +84,7 @@ const DataDosen = () => {
       if (debouncedSearch) params.set('search', debouncedSearch)
 
       const res = await api.get(`/admin/dosen?${params.toString()}`)
-      setDosenData(res.data)
+      setDosenData(res.data.data)
     } catch {
       setDosenData(null)
     } finally {
@@ -118,63 +118,23 @@ const DataDosen = () => {
         </p>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
-              <Filter className="h-4 w-4" /> Filter:
-            </div>
-
-            {/* Fakultas */}
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fakultas</label>
-              <select
-                value={selectedFakultas}
-                onChange={(e) => setSelectedFakultas(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                disabled={loadingRef}
-              >
-                <option value="">Semua Fakultas</option>
-                {fakultasList.map(f => (
-                  <option key={f.id} value={f.id}>{f.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Prodi */}
-            <div className="flex-1 min-w-[200px]">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Program Studi</label>
-              <select
-                value={selectedProdi}
-                onChange={(e) => setSelectedProdi(e.target.value)}
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                disabled={!selectedFakultas}
-              >
-                <option value="">Semua Prodi</option>
-                {prodiList.map(p => (
-                  <option key={p.id} value={p.id}>{p.nama}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search */}
-            <div className="flex-1 min-w-[250px]">
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cari</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama / NIDN..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Filters — using FilterBar */}
+      <FilterBar
+        fakultasList={fakultasList}
+        prodiList={prodiList}
+        selectedFakultas={selectedFakultas}
+        selectedProdi={selectedProdi}
+        searchQuery={searchQuery}
+        onFakultasChange={setSelectedFakultas}
+        onProdiChange={setSelectedProdi}
+        onSearchChange={setSearchQuery}
+        loadingRef={loadingRef}
+        showSemester={false}
+        showKategoriKelas={false}
+        showKelas={false}
+        showSearch={true}
+        searchPlaceholder="Cari nama / NIDN..."
+      />
 
       {/* Table */}
       <Card>

@@ -30,13 +30,19 @@ class DosenController extends Controller
         $dosen = $request->user()->dosen;
         $hari  = Carbon::now()->locale('id')->isoFormat('dddd'); // Senin, Selasa, etc.
 
-        $jadwal = \App\Models\Jadwal::whereHas('kelas', fn($q) => $q->where('dosen_id', $dosen->id))
+        $jadwal = \App\Models\Jadwal::whereHas('kelas', function ($q) use ($dosen) {
+                $q->where('dosen_id', $dosen->id)
+                  ->orWhereHas('teachingAssignments', fn($ta) => $ta->where('dosen_id', $dosen->id));
+            })
             ->where('hari', $hari)
-            ->with('kelas.mataKuliah', 'kelas.mahasiswa')
+            ->with(['kelas.mataKuliah', 'kelas.mahasiswa', 'kelas.prodi.fakultas', 'kelas.teachingAssignments.dosen.user'])
             ->orderBy('jam_mulai')
             ->get();
 
-        return response()->json($jadwal);
+        return response()->json([
+            'success' => true,
+            'data'    => $jadwal
+        ]);
     }
 
     public function kelasList(Request $request): JsonResponse
@@ -44,12 +50,16 @@ class DosenController extends Controller
         $dosen = $request->user()->dosen;
 
         $kelas = Kelas::where('dosen_id', $dosen->id)
-            ->with(['mataKuliah', 'mahasiswa.user', 'jadwal'])
+            ->orWhereHas('teachingAssignments', fn($ta) => $ta->where('dosen_id', $dosen->id))
+            ->with(['mataKuliah', 'mahasiswa.user', 'jadwal', 'prodi.fakultas'])
             ->withCount('mahasiswa')
             ->orderByDesc('id')
             ->get();
 
-        return response()->json($kelas);
+        return response()->json([
+            'success' => true,
+            'data'    => $kelas
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -62,7 +72,10 @@ class DosenController extends Controller
 
         $mahasiswa = $kelas->mahasiswa()->with('user')->orderBy('nim')->get();
 
-        return response()->json($mahasiswa);
+        return response()->json([
+            'success' => true,
+            'data'    => $mahasiswa
+        ]);
     }
 
     public function submitAbsensi(Request $request, Kelas $kelas): JsonResponse
@@ -85,8 +98,9 @@ class DosenController extends Controller
         );
 
         return response()->json([
+            'success' => true,
             'message' => "Absensi berhasil. {$result['created']} tercatat, {$result['skipped']} sudah ada.",
-            ...$result,
+            'data'    => $result,
         ]);
     }
 
@@ -100,7 +114,10 @@ class DosenController extends Controller
             ->get()
             ->groupBy('pertemuan');
 
-        return response()->json($absensi);
+        return response()->json([
+            'success' => true,
+            'data'    => $absensi
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -111,7 +128,10 @@ class DosenController extends Controller
     {
         $this->authorizeDosenKelas($request, $kelas);
 
-        return response()->json($this->materiService->getByKelas($kelas->id));
+        return response()->json([
+            'success' => true,
+            'data'    => $this->materiService->getByKelas($kelas->id)
+        ]);
     }
 
     public function materiStore(Request $request, Kelas $kelas): JsonResponse
@@ -130,7 +150,11 @@ class DosenController extends Controller
         $data['kelas_id'] = $kelas->id;
         $materi = $this->materiService->create($data, $request->file('file'));
 
-        return response()->json($materi, 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Materi berhasil diunggah.',
+            'data'    => $materi
+        ], 201);
     }
 
     public function materiUpdate(Request $request, Kelas $kelas, \App\Models\Materi $materi): JsonResponse
@@ -148,7 +172,11 @@ class DosenController extends Controller
 
         $materi = $this->materiService->update($materi, $data, $request->file('file'));
 
-        return response()->json($materi);
+        return response()->json([
+            'success' => true,
+            'message' => 'Materi berhasil diperbarui.',
+            'data'    => $materi
+        ]);
     }
 
     public function materiDestroy(Request $request, Kelas $kelas, \App\Models\Materi $materi): JsonResponse
@@ -157,7 +185,10 @@ class DosenController extends Controller
 
         $this->materiService->delete($materi);
 
-        return response()->json(['message' => 'Materi dihapus.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Materi dihapus.'
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -168,12 +199,13 @@ class DosenController extends Controller
     {
         $this->authorizeDosenKelas($request, $kelas);
 
-        return response()->json(
-            \App\Models\Quiz::where('kelas_id', $kelas->id)
+        return response()->json([
+            'success' => true,
+            'data'    => \App\Models\Quiz::where('kelas_id', $kelas->id)
                 ->withCount('soal')
                 ->orderByDesc('id')
                 ->get()
-        );
+        ]);
     }
 
     public function quizStore(Request $request, Kelas $kelas): JsonResponse
@@ -199,7 +231,11 @@ class DosenController extends Controller
         $quizData = collect($data)->except('soal')->merge(['kelas_id' => $kelas->id])->toArray();
         $quiz = $this->quizService->create($quizData, $data['soal']);
 
-        return response()->json($quiz, 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Quiz berhasil dibuat.',
+            'data'    => $quiz
+        ], 201);
     }
 
     public function quizUpdate(Request $request, Kelas $kelas, \App\Models\Quiz $quiz): JsonResponse
@@ -215,7 +251,11 @@ class DosenController extends Controller
 
         $quiz = $this->quizService->update($quiz, $data);
 
-        return response()->json($quiz);
+        return response()->json([
+            'success' => true,
+            'message' => 'Quiz berhasil diperbarui.',
+            'data'    => $quiz
+        ]);
     }
 
     /* ══════════════════════════════════════════════
@@ -234,6 +274,7 @@ class DosenController extends Controller
         $count = $this->notifikasiService->sendToKelas($kelas->id, $data['judul'], $data['pesan'], 'dosen');
 
         return response()->json([
+            'success' => true,
             'message' => "Notifikasi dikirim ke {$count} mahasiswa.",
         ]);
     }
@@ -251,7 +292,10 @@ class DosenController extends Controller
             ->orderBy('created_at')
             ->paginate(50);
 
-        return response()->json($messages);
+        return response()->json([
+            'success' => true,
+            'data'    => $messages
+        ]);
     }
 
     public function chatSend(Request $request, Kelas $kelas): JsonResponse
@@ -266,7 +310,11 @@ class DosenController extends Controller
             'pesan'    => $data['pesan'],
         ]);
 
-        return response()->json($chat->load('user:id,name,avatar'), 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Pesan terkirim.',
+            'data'    => $chat->load('user:id,name,avatar')
+        ], 201);
     }
 
     /* ══════════════════════════════════════════════
@@ -281,7 +329,10 @@ class DosenController extends Controller
             ->with('mahasiswa.user')
             ->get();
 
-        return response()->json($nilai);
+        return response()->json([
+            'success' => true,
+            'data'    => $nilai
+        ]);
     }
 
     public function nilaiStore(Request $request, Kelas $kelas): JsonResponse
@@ -309,7 +360,11 @@ class DosenController extends Controller
             ]
         );
 
-        return response()->json($nilai);
+        return response()->json([
+            'success' => true,
+            'message' => 'Nilai berhasil disimpan.',
+            'data'    => $nilai
+        ]);
     }
 
     /* ══════════════════════════════════════════════

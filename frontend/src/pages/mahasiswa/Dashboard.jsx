@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Calendar, BookOpen, Clock, AlertCircle, GraduationCap } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { Calendar, BookOpen, Clock, AlertCircle, GraduationCap, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
@@ -18,19 +19,35 @@ const Dashboard = () => {
   })
   const [loading, setLoading] = useState(true)
 
+  const location = useLocation()
+  const mustChangePassword = location.state?.mustChangePassword || false
+
+  // 1. Fetch Dashboard Data
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
         const res = await api.get('/mahasiswa/dashboard')
-        setData(res.data)
+        console.log('Mahasiswa Dashboard API Response:', res.data)
+        setData(res.data.data || res.data)
       } catch (error) {
         console.error('Gagal mengambil data dashboard mahasiswa', error)
       } finally {
         setLoading(false)
       }
     }
-    fetchDashboard()
-  }, [])
+    if (user?.id) fetchDashboard()
+  }, [user?.id])
+
+  // 2. Security Notification
+  useEffect(() => {
+    if (user?.is_first_login || mustChangePassword) {
+      toast(`Halo ${user?.name || data.nama}, Anda wajib memperbarui password demi keamanan data akademik.`, {
+        icon: '⚠️',
+        duration: 10000,
+        id: 'first-login-alert'
+      })
+    }
+  }, [user?.id, user?.is_first_login, mustChangePassword, user?.name, data.nama])
 
   if (loading) {
      return (
@@ -49,18 +66,18 @@ const Dashboard = () => {
         </div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Halo, {data.nama}!</h1>
+            <h1 className="text-3xl font-bold mb-2">Halo, {user?.name || data.nama}!</h1>
             <p className="text-brand-100 max-w-xl text-lg">
-              Semester {data.semester} • {data.prodi}
+              Semester {user?.student?.semester || data.semester || '-'} • {data.prodi || user?.student?.prodi?.nama || '-'}
             </p>
             <p className="text-brand-200 mt-1 font-mono text-sm opacity-80 border border-brand-400 bg-brand-700/50 inline-block px-3 py-1 rounded-full">
-              NIM: {data.nim}
+              NIM: {user?.student?.nim || data.nim || '-'}
             </p>
           </div>
           
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 text-center min-w-32">
-            <div className="text-3xl font-bold text-white mb-1">{data.total_kelas}</div>
-            <div className="text-xs text-brand-100 font-medium uppercase tracking-wider">Kelas Aktif</div>
+            <div className="text-3xl font-bold text-white mb-1">{user?.total_subjects || data.total_subjects || data.total_kelas || 0}</div>
+            <div className="text-xs text-brand-100 font-medium uppercase tracking-wider">Mata Kuliah Aktif</div>
           </div>
         </div>
       </div>
@@ -142,6 +159,29 @@ const Dashboard = () => {
           </Card>
         </div>
       </div>
+
+      {(user?.is_first_login || mustChangePassword) && (
+        <Card className="bg-amber-50 border-amber-500 border-2 animate-pulse shadow-lg">
+          <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-500 rounded-lg text-white">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-amber-900 text-lg">Wajib Ganti Password!</h3>
+                <p className="text-amber-800 text-sm">
+                  Keamanan akun Anda sangat penting. Harap ganti password default Anda segera.
+                </p>
+              </div>
+            </div>
+            <Link to="/profile">
+              <Button className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-8 h-12 rounded-xl shadow-md border-none whitespace-nowrap">
+                Ganti Password Sekarang
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

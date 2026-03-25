@@ -132,7 +132,7 @@ class MahasiswaImportService
                     $usersData = [];
                     $now = now();
                     
-                    // Generate NIM run before batch
+                    // Generate NIM & Password run before batch
                     foreach ($chunk as &$row) {
                         $tglLahir = Carbon::parse($row['data']['tanggal_lahir']);
                         $tglMasuk = Carbon::parse($row['data']['tanggal_masuk']);
@@ -148,7 +148,8 @@ class MahasiswaImportService
                             'name' => $row['data']['nama'],
                             'email' => $row['data']['email'] ?? null,
                             'username' => $nim,
-                            'password' => $defaultPassword,
+                            // Password default menggunakan tanggal lahir (format: dmy, contoh: 25031995)
+                            'password' => Hash::make($tglLahir->format('dmY')),
                             'role' => 'mahasiswa',
                             'is_first_login' => true,
                             'created_at' => $now,

@@ -20,7 +20,7 @@ const AbsensiPopup = ({ isOpen, onClose, kelasId, mataKuliah }) => {
       setLoading(true)
       try {
         const res = await api.get(`/dosen/kelas/${kelasId}/mahasiswa`)
-        const mhsList = res.data
+        const mhsList = res.data.data || res.data
         setMahasiswa(mhsList)
         
         // Initialize all as 'hadir'

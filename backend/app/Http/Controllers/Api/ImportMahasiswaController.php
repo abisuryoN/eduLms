@@ -19,7 +19,11 @@ class ImportMahasiswaController extends Controller
 
         $result = $this->service->preview($request->file('file'));
 
-        return response()->json($result, $result['success'] ? 200 : 422);
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'] ?? null,
+            'data'    => $result['data'] ?? $result
+        ], $result['success'] ? 200 : 422);
     }
 
     public function import(Request $request): JsonResponse
@@ -30,6 +34,10 @@ class ImportMahasiswaController extends Controller
 
         $result = $this->service->import($request->file('file'));
 
-        return response()->json($result, $result['success'] ? 200 : 422);
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'] ?? null,
+            'data'    => $result['data'] ?? $result
+        ], $result['success'] ? 200 : 422);
     }
 }

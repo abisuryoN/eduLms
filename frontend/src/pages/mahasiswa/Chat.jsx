@@ -31,25 +31,18 @@ const Chat = () => {
     const pollingIntervalRef = useRef(null)
     const lastMessageIdRef = useRef(null)
 
-    // Dynamic API Base depending on role
-    const getApiBase = (kelasId) => {
-        if (user?.role === 'admin') return `/admin/kelas/${kelasId}`
-        if (user?.role === 'dosen') return `/dosen/kelas/${kelasId}`
-        return `/mahasiswa/kelas-chat/${kelasId}`
-    }
+    // Unified API Base
+    const getApiBase = (kelasId) => `/class/${kelasId}`
 
-    // 1. Fetch Sidebar (Kelas List)
     useEffect(() => {
         const fetchKelasSidebar = async () => {
             try {
-                // Determine endpoint for class list
-                let endpoint = ''
-                if (user?.role === 'admin') endpoint = '/admin/kelas?per_page=100'
-                else if (user?.role === 'dosen') endpoint = '/dosen/kelas'
-                else endpoint = '/mahasiswa/kelas'
-
-                const res = await api.get(endpoint)
-                const list = res.data.data || res.data // handle paginated admin response
+                const res = await api.get('/my-classes')
+                console.log('My Classes API Response:', res.data)
+                
+                // My unified API returns { success: true, data: [...] }
+                // So list should be res.data.data
+                const list = res.data.data || []
                 
                 setKelasList(list)
 
@@ -59,12 +52,13 @@ const Chat = () => {
                 }
             } catch (error) {
                 console.error('Fetch kelas Error', error)
+                toast.error('Gagal mengambil daftar kelas')
             } finally {
                 setLoadingSidebar(false)
             }
         }
         fetchKelasSidebar()
-    }, [user?.role])
+    }, [selectedKelasId])
 
     // 2. Fetch Chat & Info for Selected Kelas
     useEffect(() => {
@@ -79,16 +73,21 @@ const Chat = () => {
             try {
                 const apiBase = getApiBase(selectedKelasId)
                 
-                // Fetch info & initial chat parallel
-                const [resInfo, resChat] = await Promise.all([
+                // Fetch info, members & initial chat parallel
+                const [resInfo, resChat, resMembers] = await Promise.all([
                     api.get(`${apiBase}/info`),
-                    api.get(`${apiBase}/chat`)
+                    api.get(`${apiBase}/messages`),
+                    api.get(`${apiBase}/members`)
                 ])
                 
-                setKelasInfo(resInfo.data)
+                const infoData = resInfo.data.data || resInfo.data
+                setKelasInfo({
+                    ...infoData,
+                    members: resMembers.data.data || []
+                })
                 
                 const msgs = resChat.data.data || []
-                const orderedMsgs = msgs.reverse() // from backend desc to asc
+                const orderedMsgs = Array.isArray(msgs) ? msgs.reverse() : (msgs.data ? msgs.data.reverse() : [])
                 setMessages(orderedMsgs)
                 
                 if (orderedMsgs.length > 0) {
@@ -99,6 +98,7 @@ const Chat = () => {
                 
                 scrollToBottom()
             } catch (error) {
+                console.error('Fetch Chat Error', error)
                 toast.error('Gagal mengambil data diskusi')
             } finally {
                 setLoadingChat(false)
@@ -122,7 +122,7 @@ const Chat = () => {
                 if (!afterId) return // If no messages, you might use a normal fetch or skip polling. For simplicity, we skip polling empty chats. We could just fetch the first page again.
 
                 const apiBase = getApiBase(selectedKelasId)
-                const res = await api.get(`${apiBase}/chat?after_id=${afterId}`)
+                const res = await api.get(`${apiBase}/messages?after_id=${afterId}`)
                 const newMsgs = res.data.data || []
 
                 if (newMsgs.length > 0) {
@@ -166,14 +166,16 @@ const Chat = () => {
 
         try {
             if (editingMessage) {
-                const res = await api.put(`${apiBase}/chat/${editingMessage.id}`, { pesan: text })
-                setMessages(prev => prev.map(m => m.id === editingMessage.id ? res.data : m))
+                const res = await api.put(`${apiBase}/messages/${editingMessage.id}`, { pesan: text })
+                const data = res.data.data || res.data
+                setMessages(prev => prev.map(m => m.id === editingMessage.id ? data : m))
                 setEditingMessage(null)
                 toast.success('Pesan diedit')
             } else {
-                const res = await api.post(`${apiBase}/chat`, { pesan: text })
-                setMessages(prev => [...prev, res.data])
-                lastMessageIdRef.current = res.data.id
+                const res = await api.post(`${apiBase}/messages`, { pesan: text })
+                const data = res.data.data || res.data
+                setMessages(prev => [...prev, data])
+                lastMessageIdRef.current = data.id
                 scrollToBottom()
             }
         } catch (error) {
@@ -189,7 +191,7 @@ const Chat = () => {
 
         try {
             const apiBase = getApiBase(selectedKelasId)
-            await api.delete(`${apiBase}/chat/${msgId}`)
+            await api.delete(`${apiBase}/messages/${msgId}`)
             
             // update UI locally (soft delete representation)
             setMessages(prev => prev.map(m => m.id === msgId ? { ...m, deleted_at: new Date().toISOString() } : m))
@@ -268,165 +270,163 @@ const Chat = () => {
                         <RefreshCw className="w-8 h-8 animate-spin text-brand-500" />
                     </div>
                 ) : (
-                    <>
-                        {/* Chat Header Detailed */}
-                        <div className="px-6 py-4 border-b dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0 shadow-sm z-10">
-                            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg sm:text-xl truncate">
-                                {kelasInfo?.nama_kelas} — {kelasInfo?.prodi || 'Program Studi Umum'}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-medium uppercase tracking-wider text-gray-500">
-                                <span className="bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 px-2 py-0.5 rounded-full">
-                                    Semester {kelasInfo?.semester || '-'}
-                                </span>
-                                <span className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full truncate max-w-[150px] sm:max-w-none">
-                                    TA {kelasInfo?.tahun_ajaran}
-                                </span>
-                                {kelasInfo?.dosen_pa && (
-                                    <span className="bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                                        PA: {kelasInfo.dosen_pa.split(' ')[0]} {/* first name only to save space */}
+                    <div className="flex flex-1 h-full overflow-hidden">
+                        {/* Chat Context */}
+                        <div className="flex-1 flex flex-col h-full overflow-hidden border-r dark:border-gray-800">
+                             {/* Chat Header Detailed */}
+                            <div className="px-6 py-4 border-b dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0 shadow-sm z-10">
+                                <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg sm:text-xl truncate">
+                                    {kelasInfo?.nama_kelas || 'Informasi Kelas'}
+                                </h3>
+                                <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+                                    <span className="bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 px-2 py-0.5 rounded-full">
+                                        Semester {kelasInfo?.semester || '-'}
                                     </span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Chat Context/Body */}
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f4f7f6] dark:bg-gray-950 space-y-6 relative custom-scrollbar">
-                            {messages.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-6">
-                                    <MessageSquare className="w-12 h-12 mb-3 opacity-20" />
-                                    <p className="text-sm max-w-sm">Jadilah yang pertama memulai diskusi akademik di kelas ini.</p>
+                                    <span className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                                        TA {kelasInfo?.tahun_ajaran || '-'}
+                                    </span>
                                 </div>
-                            ) : (
-                                messages.map((msg, idx) => {
-                                    const isSentByMe = Boolean(msg.user_id === user.id)
-                                    const isDosen = Boolean(msg.user?.role === 'dosen')
-                                    const isAdmin = Boolean(msg.user?.role === 'admin')
-                                    const isDeleted = Boolean(msg.deleted_at)
-                                    const isEdited = Boolean(msg.edited_at)
-                                    
-                                    // 1 Hour rule check
-                                    const createdDate = new Date(msg.created_at)
-                                    const diffMins = (new Date() - createdDate) / (1000 * 60)
-                                    const canEditDelete = isSentByMe && diffMins <= 60 && !isDeleted
+                            </div>
 
-                                    if (isDeleted) {
+                            {/* Chat Context/Body */}
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#f4f7f6] dark:bg-gray-950 space-y-6 relative custom-scrollbar">
+                                {messages.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-6">
+                                        <MessageSquare className="w-12 h-12 mb-3 opacity-20" />
+                                        <p className="text-sm max-w-sm">Jadilah yang pertama memulai diskusi akademik di kelas ini.</p>
+                                    </div>
+                                ) : (
+                                    messages.map((msg, idx) => {
+                                        const isSentByMe = Boolean(msg.user_id === user.id)
+                                        const isDosen = Boolean(msg.user?.role === 'dosen')
+                                        const isAdmin = Boolean(msg.user?.role === 'admin')
+                                        const isDeleted = Boolean(msg.deleted_at)
+                                        const isEdited = Boolean(msg.edited_at)
+                                        
+                                        // 1 Hour rule check
+                                        const createdDate = new Date(msg.created_at)
+                                        const diffMins = (new Date() - createdDate) / (1000 * 60)
+                                        const canEditDelete = isSentByMe && diffMins <= 60 && !isDeleted
+
+                                        if (isDeleted) {
+                                            return (
+                                                <div key={msg.id || idx} className={`flex max-w-[80%] ${isSentByMe ? 'ml-auto justify-end' : 'mr-auto justify-start'}`}>
+                                                    <div className="bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 italic px-4 py-2 rounded-xl text-xs flex items-center gap-2">
+                                                        <Trash2 className="w-3 h-3" /> Pesan telah dihapus.
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
                                         return (
-                                            <div key={msg.id || idx} className={`flex max-w-[80%] ${isSentByMe ? 'ml-auto justify-end' : 'mr-auto justify-start'}`}>
-                                                <div className="bg-gray-100 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 italic px-4 py-2 rounded-xl text-xs flex items-center gap-2">
-                                                    <Trash2 className="w-3 h-3" /> Pesan telah dihapus.
-                                                </div>
-                                            </div>
-                                        )
-                                    }
-
-                                    return (
-                                        <div key={msg.id || idx} className={`flex flex-col group ${isSentByMe ? 'items-end' : 'items-start'}`}>
-                                            {/* Name Tag */}
-                                            {!isSentByMe && (
-                                                <div className="flex items-center gap-1.5 px-2 mb-1">
-                                                    <span className={`text-xs font-bold leading-tight ${isAdmin ? 'text-purple-600' : isDosen ? 'text-amber-600 dark:text-amber-500' : 'text-slate-600 dark:text-slate-400'}`}>
-                                                        {msg.user?.name}
-                                                    </span>
-                                                    {isAdmin ? (
-                                                        <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 rounded font-bold uppercase tracking-widest">Admin</span>
-                                                    ) : isDosen ? (
-                                                        <span className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 px-1.5 rounded font-bold uppercase tracking-widest">Dosen</span>
-                                                    ) : null}
-                                                </div>
-                                            )}
-
-                                            <div className={`relative flex items-center gap-2 ${isSentByMe ? 'flex-row-reverse' : 'flex-row'} max-w-[85%] sm:max-w-[70%]`}>
-                                                
-                                                {/* Action Menu (Hover) */}
-                                                {canEditDelete && (
-                                                    <div className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0 ${isSentByMe ? '-mr-2' : '-ml-2'}`}>
-                                                        <button onClick={() => handleEditClick(msg)} title="Edit Pesan (maks 1 jam)" className="p-1.5 text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-gray-800 rounded-full transition-colors">
-                                                            <Edit2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button onClick={() => handleDelete(msg.id)} title="Hapus Pesan" className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-800 rounded-full transition-colors">
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </button>
+                                            <div key={msg.id || idx} className={`flex flex-col group ${isSentByMe ? 'items-end' : 'items-start'}`}>
+                                                {!isSentByMe && (
+                                                    <div className="flex items-center gap-1.5 px-2 mb-1">
+                                                        <span className={`text-xs font-bold leading-tight ${isAdmin ? 'text-purple-600' : isDosen ? 'text-amber-600 dark:text-amber-500' : 'text-slate-600 dark:text-slate-400'}`}>
+                                                            {msg.user?.name}
+                                                        </span>
+                                                        {isAdmin ? <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 rounded font-bold uppercase">Admin</span> : isDosen ? <span className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 px-1.5 rounded font-bold uppercase">Dosen</span> : null}
                                                     </div>
                                                 )}
 
-                                                {/* Bubble */}
-                                                <div className={`px-4 py-2.5 shadow-sm text-[15px] leading-relaxed relative
-                                                    ${isSentByMe 
-                                                        ? 'bg-brand-600 text-white rounded-2xl rounded-tr-sm' 
-                                                        : isAdmin
-                                                            ? 'bg-white dark:bg-gray-800 border-l-2 border-purple-500 text-gray-900 dark:text-gray-100 rounded-2xl rounded-tl-sm shadow-[0_1px_3px_rgba(0,0,0,0.05)]'
-                                                            : isDosen 
-                                                                ? 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 text-gray-900 dark:text-gray-100 rounded-2xl rounded-tl-sm'
-                                                                : 'bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-sm'
-                                                    }`}
-                                                >
-                                                    <p className="whitespace-pre-wrap">{msg.pesan}</p>
-                                                    
-                                                    <div className={`flex items-center gap-1.5 mt-1.5 justify-end ${isSentByMe ? 'text-brand-200' : 'text-gray-400'} text-[10px] font-medium tracking-wide`}>
-                                                        {isEdited && <span>(diedit)</span>}
-                                                        <span>{formatTime(msg.created_at)}</span>
+                                                <div className={`relative flex items-center gap-2 ${isSentByMe ? 'flex-row-reverse' : 'flex-row'} max-w-[85%] sm:max-w-[70%]`}>
+                                                    {canEditDelete && (
+                                                        <div className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0 ${isSentByMe ? '-mr-2' : '-ml-2'}`}>
+                                                            <button onClick={() => handleEditClick(msg)} className="p-1.5 text-gray-400 hover:text-brand-600"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                            <button onClick={() => handleDelete(msg.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                        </div>
+                                                    )}
+                                                    <div className={`px-4 py-2.5 shadow-sm text-[15px] leading-relaxed rounded-2xl ${isSentByMe ? 'bg-brand-600 text-white rounded-tr-sm' : 'bg-white dark:bg-gray-800 dark:text-white rounded-tl-sm border dark:border-gray-700'}`}>
+                                                        <p className="whitespace-pre-wrap">{msg.pesan}</p>
+                                                        <div className={`flex items-center gap-1.5 mt-1.5 justify-end ${isSentByMe ? 'text-brand-200' : 'text-gray-400'} text-[10px]`}>
+                                                            {isEdited && <span>(diedit)</span>}
+                                                            <span>{formatTime(msg.created_at)}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )
-                                })
-                            )}
-                            <div ref={messagesEndRef} className="h-4" />
+                                        )
+                                    })
+                                )}
+                                <div ref={messagesEndRef} className="h-4" />
+                            </div>
+
+                            {/* Input Area */}
+                            <div className="p-4 bg-white dark:bg-gray-900 border-t dark:border-gray-800 shrink-0">
+                                {editingMessage && (
+                                    <div className="flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2 rounded-t-xl text-xs mb-[-5px] border border-yellow-200 dark:border-yellow-800">
+                                        <div className="flex gap-2 items-center text-yellow-800"><Edit2 className="w-3 h-3" /> Mengedit pesan...</div>
+                                        <button onClick={cancelEdit}><X className="w-3 h-3" /></button>
+                                    </div>
+                                )}
+                                <form onSubmit={handleSubmit} className="relative flex items-end gap-2 bg-gray-50/50 dark:bg-gray-800/50 p-2 rounded-2xl border dark:border-gray-700">
+                                    <textarea
+                                        className="w-full bg-transparent border-none focus:ring-0 text-sm py-2 px-3 resize-none dark:text-gray-100 min-h-[44px] max-h-32"
+                                        placeholder="Tulis balasan diskusi..."
+                                        value={newMessage}
+                                        onChange={(e) => {
+                                            setNewMessage(e.target.value)
+                                            e.target.style.height = 'auto'
+                                            e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px'
+                                        }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
+                                    />
+                                    <button type="submit" disabled={sending || !newMessage.trim()} className={`shrink-0 mb-1 mr-1 p-2.5 rounded-full transition-all ${newMessage.trim() ? 'bg-brand-600 text-white shadow-sm' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                                        {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                    </button>
+                                </form>
+                            </div>
                         </div>
 
-                        {/* Input Area */}
-                        <div className="p-4 bg-white dark:bg-gray-900 border-t dark:border-gray-800 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] relative z-10 transition-colors">
-                            {editingMessage && (
-                                <div className="flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/20 px-4 py-2 rounded-t-xl text-yellow-800 dark:text-yellow-600 text-xs mb-[-5px] border border-yellow-200 dark:border-yellow-800">
-                                    <div className="flex gap-2 items-center">
-                                        <Edit2 className="w-3 h-3" /> Mengedit pesan...
+                        {/* Members Sidebar (Desktop only) */}
+                        <div className="hidden xl:flex w-72 flex-col bg-gray-50 dark:bg-gray-900 border-l dark:border-gray-800 overflow-hidden">
+                            <div className="px-5 py-4 border-b dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+                                <h4 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wider flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-brand-600" /> Anggota Kelas
+                                </h4>
+                                <p className="text-[10px] text-gray-500 mt-0.5">{kelasInfo?.members?.length || 0} orang tergabung</p>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                                <div className="space-y-4 p-2">
+                                    {/* Dosen Section */}
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase ml-2 tracking-widest">Dosen & Staff</p>
+                                        <div className="space-y-1">
+                                            {kelasInfo?.members?.filter(m => m.role === 'dosen').map(m => (
+                                                <div key={m.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-gray-800 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700 group">
+                                                    <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold text-sm shrink-0 border-2 border-white dark:border-gray-800 shadow-sm">
+                                                        {m.avatar ? <img src={m.avatar} className="w-full h-full rounded-full object-cover" /> : m.name.charAt(0)}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate group-hover:text-brand-600 transition-colors">{m.name}</p>
+                                                        <p className="text-[10px] text-brand-600 font-medium">{m.type}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <button type="button" onClick={cancelEdit} className="p-1 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 rounded-full transition-colors">
-                                        <X className="w-3 h-3" />
-                                    </button>
+
+                                    {/* Mahasiswa Section */}
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase ml-2 tracking-widest">Mahasiswa</p>
+                                        <div className="space-y-1">
+                                            {kelasInfo?.members?.filter(m => m.role === 'mahasiswa').map(m => (
+                                                <div key={m.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-gray-800 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 text-xs shrink-0 font-medium uppercase">
+                                                        {m.avatar ? <img src={m.avatar} className="w-full h-full rounded-full object-cover" /> : m.name.charAt(0)}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{m.name}</p>
+                                                        <p className="text-[9px] text-gray-400">Mahasiswa</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
-                            
-                            <form onSubmit={handleSubmit} className="relative flex items-end gap-2 bg-gray-50/50 dark:bg-gray-800/50 p-2 rounded-2xl border dark:border-gray-700 focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all">
-                                <textarea
-                                    className="w-full bg-transparent border-none focus:ring-0 text-sm py-2 px-3 resize-none dark:text-gray-100 max-h-32 min-h-[44px]"
-                                    rows={1}
-                                    placeholder={editingMessage ? "Ubah pesan Anda..." : "Tulis balasan diskusi..."}
-                                    value={newMessage}
-                                    onChange={(e) => {
-                                        setNewMessage(e.target.value)
-                                        e.target.style.height = 'auto'
-                                        e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px'
-                                    }}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault()
-                                            handleSubmit(e)
-                                        }
-                                    }}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={sending || !newMessage.trim()}
-                                    className={`shrink-0 mb-1 mr-1 p-2.5 rounded-full transition-all ${
-                                        newMessage.trim() 
-                                            ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm' 
-                                            : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                                    }`}
-                                >
-                                    {sending ? (
-                                        <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
-                                    ) : (
-                                        <Send className="w-4 h-4 shrink-0 translate-x-[1px]" />
-                                    )}
-                                </button>
-                            </form>
-                            <p className="text-center text-[10px] text-gray-400 mt-2 font-medium tracking-wide">
-                                Enter untuk mengirim &bull; Shift+Enter untuk baris baru
-                            </p>
+                            </div>
                         </div>
-                    </>
+                    </div>
                 )}
             </Card>
         </div>

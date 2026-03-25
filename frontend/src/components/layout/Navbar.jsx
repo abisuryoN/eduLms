@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { Link, useNavigate } from 'react-router-dom'
-import { Bell, Menu, UserCircle, LogOut, Sun, Moon, MessageSquare } from 'lucide-react'
+import { Bell, Menu, UserCircle, LogOut, Sun, Moon, MessageSquare, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import api from '../../lib/api'
 import { Avatar } from '../ui/Avatar'
 
-const Navbar = ({ toggleSidebar }) => {
+const Navbar = ({ toggleSidebar, toggleCollapse, collapsed }) => {
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -74,14 +74,29 @@ const Navbar = ({ toggleSidebar }) => {
       {/* Mobile menu toggle */}
       <button
         onClick={toggleSidebar}
-        className="-m-2.5 p-2.5 text-gray-700 lg:hidden rounded-lg hover:bg-gray-100 transition-colors"
+        className="-m-2.5 p-2.5 text-gray-700 dark:text-gray-300 lg:hidden rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
         <span className="sr-only">Open sidebar</span>
         <Menu className="h-6 w-6" aria-hidden="true" />
       </button>
 
+      {/* Desktop collapse toggle */}
+      {toggleCollapse && (
+        <button
+          onClick={toggleCollapse}
+          className="hidden lg:flex -m-2.5 p-2.5 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-5 w-5" />
+          ) : (
+            <PanelLeftClose className="h-5 w-5" />
+          )}
+        </button>
+      )}
+
       {/* Separator for mobile */}
-      <div className="h-6 w-px bg-gray-200 lg:hidden" aria-hidden="true" />
+      <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 lg:hidden" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
         {/* Placeholder for search or breadcrumbs */}

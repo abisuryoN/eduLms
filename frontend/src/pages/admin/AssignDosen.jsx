@@ -5,6 +5,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Pagination } from '../../components/ui/Pagination'
 import { toast } from 'react-hot-toast'
 import { Users, GraduationCap, CheckCircle, Search, Loader2, X, UserCheck } from 'lucide-react'
+import FilterBar from '../../components/ui/FilterBar'
 import api from '../../lib/api'
 
 const AssignDosen = () => {
@@ -19,6 +20,10 @@ const AssignDosen = () => {
   // Filters
   const [selectedFakultas, setSelectedFakultas] = useState('')
   const [selectedProdi, setSelectedProdi] = useState('')
+
+  // Step 4: Kelas filter
+  const [kelasKategoriFilter, setKelasKategoriFilter] = useState('')
+  const [kelasSearch, setKelasSearch] = useState('')
 
   // Selected dosen (from modal)
   const [selectedDosen, setSelectedDosen] = useState(null)
@@ -80,9 +85,9 @@ const AssignDosen = () => {
           api.get(`/admin/mata-kuliah?prodi_id=${selectedProdi}`),
           api.get(`/admin/kelas?per_page=100`),
         ])
-        setMatkulList(resMk.data.data || resMk.data)
-        const allKelas = resKelas.data.data || resKelas.data
-        setKelasList(allKelas.filter(k => String(k.prodi_id) === String(selectedProdi)))
+        setMatkulList(resMk.data.data || resMk.data || [])
+        const kelasData = resKelas.data.data
+        setKelasList(Array.isArray(kelasData) ? kelasData : kelasData?.data || [])
       } catch { /* silent */ }
     }
     fetchData()
@@ -111,7 +116,7 @@ const AssignDosen = () => {
       if (dosenModalDebouncedSearch) params.set('search', dosenModalDebouncedSearch)
 
       const res = await api.get(`/admin/dosen?${params.toString()}`)
-      setDosenModalData(res.data)
+      setDosenModalData(res.data.data)
     } catch {
       setDosenModalData(null)
     } finally {
@@ -146,6 +151,16 @@ const AssignDosen = () => {
       setSelectedKelas([...selectedKelas, kelasId])
     }
   }
+
+  // Filtered kelas list for Step 4
+  const filteredKelasList = kelasList.filter(k => {
+    if (kelasKategoriFilter && (k.kategori_kelas || 'Reguler Pagi') !== kelasKategoriFilter) return false
+    if (kelasSearch) {
+      const q = kelasSearch.toLowerCase()
+      return k.nama_kelas?.toLowerCase().includes(q) || k.tahun_ajaran?.toLowerCase().includes(q)
+    }
+    return true
+  })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -187,7 +202,10 @@ const AssignDosen = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manajemen Penugasan Dosen</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <UserCheck className="h-7 w-7 text-brand-600 dark:text-brand-400" />
+          Manajemen Penugasan Dosen
+        </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Kelola penugasan dosen sebagai Pengajar Mata Kuliah dan Pembimbing Akademik.
         </p>
@@ -314,47 +332,76 @@ const AssignDosen = () => {
                 </div>
               )}
 
-              {/* Step 4: Kelas Selection */}
-              <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 space-y-3">
+              {/* Step 4: Kelas Selection — Grid Cards with Kategori Filter */}
+              <div className={`p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 space-y-3 ${activeTab !== 'pengajar' ? 'md:col-span-2' : ''}`}>
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Step {activeTab === 'pengajar' ? '4' : '3'} — Pilih Kelas
                 </p>
-                <div className="max-h-52 overflow-y-auto space-y-2">
-                  {kelasList.length === 0 ? (
+
+                {/* Kelas mini-filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <select
+                    value={kelasKategoriFilter}
+                    onChange={(e) => setKelasKategoriFilter(e.target.value)}
+                    className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm py-1.5 px-2.5 text-gray-900 dark:text-gray-100 focus:ring-brand-500"
+                  >
+                    <option value="">Semua Kategori</option>
+                    <option value="Reguler Pagi">Reguler Pagi</option>
+                    <option value="Reguler Sore">Reguler Sore</option>
+                    <option value="Karyawan">Karyawan</option>
+                  </select>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari kelas..."
+                      value={kelasSearch}
+                      onChange={(e) => setKelasSearch(e.target.value)}
+                      className="block w-full pl-8 pr-2.5 py-1.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm rounded-lg focus:ring-brand-500 text-gray-900 dark:text-gray-100 placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Kelas Grid Cards */}
+                <div className="max-h-60 overflow-y-auto">
+                  {filteredKelasList.length === 0 ? (
                     <p className="text-sm text-gray-500 text-center py-4">
-                      {selectedProdi ? 'Tidak ada kelas untuk prodi ini' : 'Pilih prodi terlebih dahulu'}
+                      {selectedProdi ? 'Tidak ada kelas untuk filter ini' : 'Pilih prodi terlebih dahulu'}
                     </p>
                   ) : (
-                    kelasList.map(kelas => (
-                      <label
-                        key={kelas.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedKelas.includes(kelas.id)
-                            ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/40'
-                            : 'border-transparent hover:bg-white dark:hover:bg-gray-800'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                          checked={selectedKelas.includes(kelas.id)}
-                          onChange={() => handleKelasToggle(kelas.id)}
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            Kelas {kelas.nama_kelas}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {kelas.tahun_ajaran} - Semester {kelas.semester}
-                          </span>
-                        </div>
-                        {selectedKelas.includes(kelas.id) && (
-                          <CheckCircle className="h-4 w-4 text-brand-500 ml-auto" />
-                        )}
-                      </label>
-                    ))
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {filteredKelasList.map(kelas => (
+                        <label
+                          key={kelas.id}
+                          className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                            selectedKelas.includes(kelas.id)
+                              ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/40 ring-1 ring-brand-500'
+                              : 'border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 hover:border-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 shrink-0"
+                            checked={selectedKelas.includes(kelas.id)}
+                            onChange={() => handleKelasToggle(kelas.id)}
+                          />
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {kelas.nama_kelas}
+                            </span>
+                            <span className="text-[10px] text-gray-500 truncate">
+                              {kelas.kategori_kelas || 'Reguler Pagi'} • Sem {kelas.semester}
+                            </span>
+                          </div>
+                          {selectedKelas.includes(kelas.id) && (
+                            <CheckCircle className="h-4 w-4 text-brand-500 ml-auto shrink-0" />
+                          )}
+                        </label>
+                      ))}
+                    </div>
                   )}
                 </div>
+
                 <div className="flex justify-between text-xs text-gray-500 pt-1">
                   <span>{selectedKelas.length} kelas dipilih</span>
                   <button type="button" onClick={() => setSelectedKelas([])} className="text-red-500 hover:text-red-600">
@@ -381,7 +428,6 @@ const AssignDosen = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-4">
-          {/* Search inside modal */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -394,7 +440,6 @@ const AssignDosen = () => {
             />
           </div>
 
-          {/* Dosen list */}
           <div className="max-h-[360px] overflow-y-auto space-y-1">
             {dosenModalLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
@@ -431,7 +476,6 @@ const AssignDosen = () => {
             )}
           </div>
 
-          {/* Modal pagination */}
           {!dosenModalLoading && dosenModalTotal > 10 && (
             <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
               <span className="text-xs text-gray-500">{dosenModalTotal} dosen ditemukan</span>

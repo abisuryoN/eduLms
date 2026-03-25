@@ -57,6 +57,30 @@ class Kelas extends Model
         return $this->hasMany(Jadwal::class);
     }
 
+    /* ── Aliases & New Relations ───────────────── */
+
+    public function subjects()
+    {
+        return $this->hasManyThrough(
+            MataKuliah::class,
+            TeachingAssignment::class,
+            'kelas_id',       // Foreign key on TeachingAssignment table
+            'id',             // Foreign key on MataKuliah table
+            'id',             // Local key on Kelas table
+            'mata_kuliah_id'  // Local key on TeachingAssignment table
+        );
+    }
+
+    public function students()
+    {
+        return $this->belongsToMany(Mahasiswa::class, 'kelas_mahasiswa');
+    }
+
+    public function pa()
+    {
+        return $this->hasMany(PembimbingAkademik::class);
+    }
+
     public function materi()
     {
         return $this->hasMany(Materi::class);

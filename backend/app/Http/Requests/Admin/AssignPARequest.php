@@ -8,15 +8,15 @@ class AssignPARequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() && $this->user()->role === 'admin';
     }
 
     public function rules(): array
     {
         return [
-            'dosen_id'    => 'required|exists:dosen,id',
-            'kelas_ids'   => 'required|array|min:1',
-            'kelas_ids.*' => 'exists:kelas,id',
+            'dosen_id'  => ['required', 'exists:dosen,id'],
+            'kelas_ids' => ['required', 'array'],
+            'kelas_ids.*' => ['exists:kelas,id'],
         ];
     }
 }

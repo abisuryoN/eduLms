@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit2, Trash2, Search } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, BookOpen } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import api from '../../lib/api'
 import { Card } from '../../components/ui/Card'
@@ -7,16 +7,23 @@ import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { Pagination } from '../../components/ui/Pagination'
+import FilterBar from '../../components/ui/FilterBar'
 
 const ManajemenMataKuliah = () => {
     const [matkulList, setMatkulList] = useState([])
     const [fakultasList, setFakultasList] = useState([])
     const [prodiList, setProdiList] = useState([])
+    const [allProdiList, setAllProdiList] = useState([])
     const [loading, setLoading] = useState(true)
+
+    // Filter state
+    const [filterFakultas, setFilterFakultas] = useState('')
+    const [filterProdi, setFilterProdi] = useState('')
+    const [filterSemester, setFilterSemester] = useState('')
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [modalMode, setModalMode] = useState('add') // add or edit
+    const [modalMode, setModalMode] = useState('add')
     const [selectedMatkul, setSelectedMatkul] = useState(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -43,9 +50,9 @@ const ManajemenMataKuliah = () => {
                 api.get('/admin/fakultas'),
                 api.get('/admin/prodi')
             ])
-            setMatkulList(resMatkul.data?.data || resMatkul.data || [])
-            setFakultasList(resFakultas.data?.data || resFakultas.data || [])
-            setProdiList(resProdi.data?.data || resProdi.data || [])
+            setMatkulList(resMatkul.data.data?.data || resMatkul.data.data || [])
+            setFakultasList(resFakultas.data.data?.data || resFakultas.data.data?.fakultas || resFakultas.data.data || [])
+            setAllProdiList(resProdi.data.data?.data || resProdi.data.data || [])
         } catch (error) {
             toast.error('Gagal memuat data master')
         } finally {
@@ -57,31 +64,53 @@ const ManajemenMataKuliah = () => {
         fetchAllData()
     }, [])
 
-    // Dependent Dropdown Logic (Filter prodi by selected fakultas)
-    const filteredProdi = useMemo(() => {
+    // Cascading filter: Fakultas → Prodi
+    useEffect(() => {
+        setFilterProdi('')
+        if (!filterFakultas) {
+            setProdiList([])
+            return
+        }
+        setProdiList(allProdiList.filter(p => String(p.fakultas_id) === String(filterFakultas)))
+    }, [filterFakultas, allProdiList])
+
+    // Dependent Dropdown Logic for Form (Filter prodi by selected fakultas)
+    const filteredFormProdi = useMemo(() => {
         if (!formData.fakultas_id) return []
-        return prodiList.filter(p => p.fakultas_id.toString() === formData.fakultas_id.toString())
-    }, [formData.fakultas_id, prodiList])
+        return allProdiList.filter(p => p.fakultas_id.toString() === formData.fakultas_id.toString())
+    }, [formData.fakultas_id, allProdiList])
 
     useEffect(() => {
         if (formData.fakultas_id) {
-            // Reset prodi_id if the newly filtered list doesn't contain current prodi_id
-            if (!filteredProdi.find(p => p.id.toString() === formData.prodi_id.toString())) {
+            if (!filteredFormProdi.find(p => p.id.toString() === formData.prodi_id.toString())) {
                 setFormData(prev => ({ ...prev, prodi_id: '' }))
             }
         } else {
             setFormData(prev => ({ ...prev, prodi_id: '' }))
         }
-    }, [formData.fakultas_id, filteredProdi])
+    }, [formData.fakultas_id, filteredFormProdi])
 
-    // Client-side Filtering & Pagination
+    // Client-side Filtering (by filter dropdowns + search)
     const filteredMatkul = useMemo(() => {
-        return matkulList.filter(mk => 
-            mk.kode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            mk.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            mk.prodi?.nama?.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-    }, [matkulList, searchQuery])
+        return matkulList.filter(mk => {
+            // Filter by fakultas
+            if (filterFakultas && String(mk.prodi?.fakultas_id) !== String(filterFakultas)) return false
+            // Filter by prodi
+            if (filterProdi && String(mk.prodi_id) !== String(filterProdi)) return false
+            // Filter by semester
+            if (filterSemester && String(mk.semester) !== String(filterSemester)) return false
+            // Search
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase()
+                return (
+                    mk.kode?.toLowerCase().includes(q) ||
+                    mk.nama?.toLowerCase().includes(q) ||
+                    mk.prodi?.nama?.toLowerCase().includes(q)
+                )
+            }
+            return true
+        })
+    }, [matkulList, filterFakultas, filterProdi, filterSemester, searchQuery])
 
     const paginatedMatkul = useMemo(() => {
         const startIndex = (currentPage - 1) * pageSize
@@ -92,7 +121,7 @@ const ManajemenMataKuliah = () => {
 
     useEffect(() => {
         setCurrentPage(1)
-    }, [searchQuery, pageSize])
+    }, [searchQuery, pageSize, filterFakultas, filterProdi, filterSemester])
 
     const handleOpenModal = (mode, matkul = null) => {
         setModalMode(mode)
@@ -169,8 +198,11 @@ const ManajemenMataKuliah = () => {
         <div className="space-y-6">
             <div className="sm:flex sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Manajemen Mata Kuliah</h1>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <BookOpen className="h-7 w-7 text-brand-600 dark:text-brand-400" />
+                        Manajemen Mata Kuliah
+                    </h1>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         Kelola data mata kuliah serta relasinya dengan Program Studi.
                     </p>
                 </div>
@@ -182,22 +214,27 @@ const ManajemenMataKuliah = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full sm:max-w-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                        type="text"
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-colors"
-                        placeholder="Cari kode, nama matkul, prodi..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Menampilkan {filteredMatkul.length} mata kuliah
-                </div>
+            {/* Filters — using reusable FilterBar */}
+            <FilterBar
+                fakultasList={fakultasList}
+                prodiList={prodiList}
+                selectedFakultas={filterFakultas}
+                selectedProdi={filterProdi}
+                selectedSemester={filterSemester}
+                searchQuery={searchQuery}
+                onFakultasChange={setFilterFakultas}
+                onProdiChange={setFilterProdi}
+                onSemesterChange={setFilterSemester}
+                onSearchChange={setSearchQuery}
+                showSemester={true}
+                showKategoriKelas={false}
+                showKelas={false}
+                showSearch={true}
+                searchPlaceholder="Cari kode, nama matkul, prodi..."
+            />
+
+            <div className="flex justify-end text-sm text-gray-500 dark:text-gray-400">
+                Menampilkan {filteredMatkul.length} mata kuliah
             </div>
 
             <Card>
@@ -274,7 +311,6 @@ const ManajemenMataKuliah = () => {
                 title={modalMode === 'add' ? 'Tambah Mata Kuliah' : 'Edit Mata Kuliah'}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Dropdown Fakultas */}
                     <div>
                         <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Fakultas</label>
                         <select
@@ -292,7 +328,6 @@ const ManajemenMataKuliah = () => {
                         </select>
                     </div>
 
-                    {/* Dropdown Prodi */}
                     <div>
                         <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Program Studi</label>
                         <select
@@ -303,7 +338,7 @@ const ManajemenMataKuliah = () => {
                             disabled={!formData.fakultas_id}
                         >
                             <option value="" disabled>Pilih Program Studi...</option>
-                            {filteredProdi.map((prodi) => (
+                            {filteredFormProdi.map((prodi) => (
                                 <option key={prodi.id} value={prodi.id}>
                                     {prodi.kode} - {prodi.nama} ({prodi.jenjang})
                                 </option>

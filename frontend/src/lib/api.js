@@ -1,8 +1,16 @@
 import axios from "axios";
 
-const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+const getBaseURL = () => {
+  // Use http://localhost:8000/api if on port 5173 (Vite dev)
+  if (window.location.port === '5173') {
+    return "http://localhost:8000/api";
+  }
+  // Otherwise use relative path (same host, e.g. Laragon)
+  return "/api";
+};
 
+const api = axios.create({
+  baseURL: getBaseURL(),
   headers: {
     "Accept": "application/json",
   },
@@ -31,10 +39,6 @@ api.interceptors.response.use(
       if (error.response.status === 401) {
         localStorage.removeItem('token')
         window.location.href = '/login'
-      }
-
-      if (error.response.status === 403 && error.response.data?.must_change_password) {
-        window.location.href = '/change-password'
       }
     }
     return Promise.reject(error)

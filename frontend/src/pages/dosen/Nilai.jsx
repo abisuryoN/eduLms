@@ -30,16 +30,19 @@ const Nilai = () => {
           api.get('/dosen/kelas') // simplification to get name
         ])
         
-        const nilaiArr = resNilai.data
+        const nilaiArr = resNilai.data.data || resNilai.data
+        const mhsData = resMhs.data.data || resMhs.data
+        const kelasList = resKelas.data.data || resKelas.data
+
         setNilaiData(nilaiArr)
-        setMahasiswaDaftar(resMhs.data)
+        setMahasiswaDaftar(mhsData)
         
-        const target = resKelas.data.find(k => k.id === parseInt(kelasId))
+        const target = kelasList.find(k => k.id === parseInt(kelasId))
         setKelasDetail(target)
 
         // Initialize input map
         const initialInputs = {}
-        resMhs.data.forEach(mhs => {
+        mhsData.forEach(mhs => {
           const rowNilai = nilaiArr.find(n => n.mahasiswa_id === mhs.id)
           initialInputs[mhs.id] = {
             tugas: rowNilai?.tugas || 0,
@@ -92,14 +95,15 @@ const Nilai = () => {
       })
       
       // Update local state with exact calculated result
+      const savedData = res.data.data || res.data
       setInputData(prev => ({
         ...prev,
         [mhsId]: {
-          tugas: res.data.tugas,
-          uts: res.data.uts,
-          uas: res.data.uas,
-          total: res.data.total,
-          grade: res.data.grade
+          tugas: savedData.tugas,
+          uts: savedData.uts,
+          uas: savedData.uas,
+          total: savedData.total,
+          grade: savedData.grade
         }
       }))
       toast.success('Nilai berhasil disimpan')

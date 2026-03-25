@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { User } from 'lucide-react';
+import api from '../../lib/api';
 
 export const Avatar = ({ 
   src, 
@@ -44,10 +45,17 @@ export const Avatar = ({
     );
   }
 
+  const getAvatarSrc = () => {
+    if (!src) return null;
+    if (src.startsWith('http')) return src;
+    const base = api.defaults.baseURL.replace('/api', '');
+    return `${base}${src.startsWith('/') ? '' : '/'}${src}`;
+  };
+
   return (
     <div className={baseClass}>
       <img
-        src={src}
+        src={getAvatarSrc()}
         alt={alt}
         className="w-full h-full object-cover"
         onError={() => setError(true)}

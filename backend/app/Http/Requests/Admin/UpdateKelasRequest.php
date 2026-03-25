@@ -2,36 +2,26 @@
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateKelasRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return true;
+        return $this->user() && $this->user()->role === 'admin';
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            'fakultas_id'    => 'nullable|exists:fakultas,id',
-            'prodi_id'       => 'nullable|exists:prodi,id',
-            'mata_kuliah_id' => 'sometimes|exists:mata_kuliah,id',
-            'dosen_id'       => 'sometimes|exists:dosen,id',
-            'dosen_pa_id'    => 'nullable|exists:dosen,id',
-            'nama_kelas'     => 'sometimes|string|max:10',
-            'semester'       => 'sometimes|string',
-            'tahun_ajaran'   => 'sometimes|string',
-            'kategori_kelas' => 'sometimes|in:Regular Pagi,Regular Sore,Regular Malam',
+            'fakultas_id'       => ['sometimes', 'exists:fakultas,id'],
+            'prodi_id'          => ['sometimes', 'exists:prodi,id'],
+            'nama_kelas'        => ['sometimes', 'string', 'max:100'],
+            'semester'          => ['sometimes', 'integer', 'min:1', 'max:14'],
+            'tahun_ajaran'      => ['sometimes', 'string', 'max:20'],
+            'kategori_kelas'    => ['sometimes', 'in:Reguler Pagi,Reguler Sore,Karyawan'],
+            'dosen_id'          => ['nullable', 'exists:dosen,id'],
+            'mata_kuliah_id'    => ['nullable', 'exists:mata_kuliah,id'],
         ];
     }
 }

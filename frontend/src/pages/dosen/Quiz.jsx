@@ -39,8 +39,10 @@ const Quiz = () => {
           api.get(`/dosen/kelas/${kelasId}/quiz`),
           api.get('/dosen/kelas')
         ])
-        setQuizList(resQuiz.data)
-        setKelasDetail(resKelas.data.find(k => k.id === parseInt(kelasId)))
+        const resQuizData = resQuiz.data.data || resQuiz.data
+        const resKelasData = resKelas.data.data || resKelas.data
+        setQuizList(resQuizData)
+        setKelasDetail(resKelasData.find(k => k.id === parseInt(kelasId)))
       } catch (error) {
         toast.error('Gagal memuat data quiz')
       } finally {
@@ -79,7 +81,7 @@ const Quiz = () => {
       setViewMode('list')
       // Refresh list
       const res = await api.get(`/dosen/kelas/${kelasId}/quiz`)
-      setQuizList(res.data)
+      setQuizList(res.data.data || res.data)
       // reset form
       setFormData({ judul: '', deskripsi: '', durasi_menit: '60', pertemuan: '1', is_active: true })
       setSoalList([{ pertanyaan: '', opsi_a: '', opsi_b: '', opsi_c: '', opsi_d: '', jawaban_benar: 'a', poin: '10' }])
@@ -96,7 +98,7 @@ const Quiz = () => {
         is_active: !quiz.is_active
       })
       const res = await api.get(`/dosen/kelas/${kelasId}/quiz`)
-      setQuizList(res.data)
+      setQuizList(res.data.data || res.data)
       toast.success(`Status quiz diperbarui`)
     } catch (error) {
        toast.error('Gagal update status')

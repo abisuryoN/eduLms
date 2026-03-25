@@ -6,8 +6,8 @@ import DashboardLayout from './components/layout/DashboardLayout'
 
 // Pages
 import Login from './pages/Login'
-import ChangePassword from './pages/ChangePassword'
 import Profile from './pages/Profile'
+import ResetPassword from './pages/ResetPassword'
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard'
@@ -49,11 +49,7 @@ const AppRoutes = () => {
     <Routes>
       {/* Public Route */}
       <Route path="/login" element={<Login />} />
-      <Route path="/change-password" element={
-        <ProtectedRoute>
-          <ChangePassword />
-        </ProtectedRoute>
-      } />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Protected Admin Routes */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>

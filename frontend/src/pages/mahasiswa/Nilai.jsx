@@ -12,7 +12,7 @@ const Nilai = () => {
     const fetchNilai = async () => {
       try {
         const res = await api.get('/mahasiswa/nilai')
-        setNilaiData(res.data)
+        setNilaiData(res.data.data || res.data)
       } catch (error) {
         console.error('Gagal mengambil data nilai', error)
       } finally {

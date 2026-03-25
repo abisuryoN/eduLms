@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreFakultasRequest;
+use App\Http\Requests\Admin\UpdateFakultasRequest;
 use App\Services\FakultasService;
 use Illuminate\Http\Request;
 
 class FakultasController extends Controller
 {
+    use \Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
     protected $fakultasService;
 
     public function __construct(FakultasService $fakultasService)
@@ -23,9 +27,9 @@ class FakultasController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreFakultasRequest $request)
     {
-        $fakultas = $this->fakultasService->create($request->all());
+        $fakultas = $this->fakultasService->create($request->validated());
         return response()->json([
             'success' => true,
             'message' => 'Fakultas berhasil dibuat',
@@ -41,9 +45,9 @@ class FakultasController extends Controller
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateFakultasRequest $request, $id)
     {
-        $fakultas = $this->fakultasService->update($id, $request->all());
+        $fakultas = $this->fakultasService->update($id, $request->validated());
         return response()->json([
             'success' => true,
             'message' => 'Fakultas berhasil diupdate',

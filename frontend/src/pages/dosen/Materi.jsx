@@ -33,7 +33,8 @@ const Materi = () => {
   const fetchKelasDetail = async () => {
     try {
       const res = await api.get('/dosen/kelas')
-      const target = res.data.find(k => k.id === parseInt(kelasId))
+      const list = res.data.data || res.data
+      const target = list.find(k => k.id === parseInt(kelasId))
       setKelasDetail(target)
     } catch (e) {
       console.error(e)
@@ -44,7 +45,7 @@ const Materi = () => {
     setLoading(true)
     try {
       const res = await api.get(`/dosen/kelas/${kelasId}/materi`)
-      setMateriList(res.data)
+      setMateriList(res.data.data || res.data)
     } catch (error) {
       toast.error('Gagal memuat daftar materi')
     } finally {
@@ -191,7 +192,7 @@ const Materi = () => {
                 <div className="mt-auto space-y-3">
                   {materi.tipe === 'file' ? (
                     <a 
-                      href={`http://localhost:8000/storage/${materi.file_path}`} 
+                      href={`${api.defaults.baseURL.replace('/api', '')}/storage/${materi.file_path}`} 
                       target="_blank" 
                       rel="noreferrer"
                       className="flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 font-medium bg-brand-50 p-2 rounded-lg justify-center transition-colors"
