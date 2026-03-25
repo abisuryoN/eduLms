@@ -12,7 +12,8 @@ import {
   Award,
   BookMarked,
   Bell,
-  MessageSquare
+  MessageSquare,
+  GraduationCap
 } from 'lucide-react'
 import { Avatar } from '../ui/Avatar'
 
@@ -22,6 +23,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const adminMenu = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Data Dosen', path: '/admin/data-dosen', icon: UserCheck },
+    { name: 'Data Mahasiswa', path: '/admin/data-mahasiswa', icon: GraduationCap },
     { name: 'Import Mahasiswa', path: '/admin/import-mahasiswa', icon: Users },
     { name: 'Import Dosen', path: '/admin/import-dosen', icon: UserCheck },
     { name: 'Mata Kuliah', path: '/admin/mata-kuliah', icon: BookOpen },

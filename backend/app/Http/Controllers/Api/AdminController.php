@@ -10,6 +10,8 @@ use App\Models\Mahasiswa;
 use App\Models\LoginSlide;
 use App\Models\MataKuliah;
 use App\Models\Prodi;
+use App\Services\DataDosenService;
+use App\Services\DataMahasiswaService;
 use App\Services\DosenService;
 use App\Services\DosenImportService;
 use App\Services\JadwalService;
@@ -22,11 +24,13 @@ use Illuminate\Support\Facades\Storage;
 class AdminController extends Controller
 {
     public function __construct(
-        private MahasiswaService $mahasiswaService,
-        private DosenService     $dosenService,
-        private DosenImportService $dosenImportService,
-        private KelasService     $kelasService,
-        private JadwalService    $jadwalService,
+        private MahasiswaService      $mahasiswaService,
+        private DosenService           $dosenService,
+        private DosenImportService     $dosenImportService,
+        private KelasService           $kelasService,
+        private JadwalService          $jadwalService,
+        private DataDosenService       $dataDosenService,
+        private DataMahasiswaService   $dataMahasiswaService,
     ) {}
 
     /* ══════════════════════════════════════════════
@@ -266,41 +270,19 @@ class AdminController extends Controller
 
     public function mahasiswaList(Request $request): JsonResponse
     {
-        $query = Mahasiswa::with(['user', 'prodi.fakultas']);
-
-        if ($request->has('prodi_id')) {
-            $query->where('prodi_id', $request->prodi_id);
-        }
-        if ($request->has('search')) {
-            $s = $request->search;
-            $query->where(function ($q) use ($s) {
-                $q->where('nim', 'LIKE', "%{$s}%")
-                  ->orWhereHas('user', fn($q2) => $q2->where('name', 'LIKE', "%{$s}%"));
-            });
-        }
-
-        return response()->json($query->orderByDesc('id')->paginate(20));
+        return response()->json($this->dataMahasiswaService->getPaginated($request));
     }
 
     public function dosenList(Request $request): JsonResponse
     {
-        $query = Dosen::with('user');
+        return response()->json($this->dataDosenService->getPaginated($request));
+    }
 
-        \Illuminate\Support\Facades\Log::info("dosenList called with prodi_id: " . $request->get('prodi_id') . " Total Dosen in DB: " . Dosen::count() . " Total with this prodi: " . (clone $query)->where('prodi_id', $request->prodi_id)->count());
-
-        if ($request->has('prodi_id') && $request->prodi_id !== '') {
-            $query->where('prodi_id', $request->prodi_id);
-        }
-
-        if ($request->has('search')) {
-            $s = $request->search;
-            $query->where(function ($q) use ($s) {
-                $q->where('id_kerja', 'LIKE', "%{$s}%")
-                  ->orWhereHas('user', fn($q2) => $q2->where('name', 'LIKE', "%{$s}%"));
-            });
-        }
-        $perPage = $request->get('per_page', 20);
-        return response()->json($query->orderByDesc('id')->paginate($perPage));
+    public function semesterList(): JsonResponse
+    {
+        return response()->json(
+            Kelas::select('semester')->distinct()->orderBy('semester')->pluck('semester')
+        );
     }
 
     /* ══════════════════════════════════════════════

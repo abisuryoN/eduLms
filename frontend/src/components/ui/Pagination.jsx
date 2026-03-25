@@ -50,6 +50,7 @@ export const Pagination = ({
             className="rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm focus:ring-brand-500 focus:border-brand-500 py-1 pl-2 pr-8 transition-colors"
           >
             <option value={10}>10</option>
+            <option value={15}>15</option>
             <option value={25}>25</option>
             <option value={50}>50</option>
           </select>

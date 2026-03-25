@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::get('/referensi/options', [AdminController::class, 'referensiOptions']);
                 Route::get('/mahasiswa', [AdminController::class, 'mahasiswaList']);
                 Route::get('/dosen', [AdminController::class, 'dosenList']);
+                Route::get('/semester-list', [AdminController::class, 'semesterList']);
 
                 // Master Data Management
                 Route::apiResource('fakultas', \App\Http\Controllers\Api\FakultasController::class);

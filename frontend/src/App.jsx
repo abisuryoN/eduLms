@@ -20,6 +20,8 @@ import AssignDosen from './pages/admin/AssignDosen'
 import AdminNotifikasi from './pages/admin/Notifikasi'
 import ManajemenSlider from './pages/admin/ManajemenSlider'
 import ManajemenMataKuliah from './pages/admin/ManajemenMataKuliah'
+import DataDosen from './pages/admin/DataDosen'
+import DataMahasiswa from './pages/admin/DataMahasiswa'
 
 // Dosen Pages
 import DosenDashboard from './pages/dosen/Dashboard'
@@ -59,6 +61,8 @@ const AppRoutes = () => {
           <Route path="/admin/manajemen-kelas" element={<ManajemenKelas />} />
           <Route path="/admin/jadwal" element={<JadwalAdmin />} />
           <Route path="/admin/mata-kuliah" element={<ManajemenMataKuliah />} />
+          <Route path="/admin/data-dosen" element={<DataDosen />} />
+          <Route path="/admin/data-mahasiswa" element={<DataMahasiswa />} />
           <Route path="/admin/assign-mahasiswa" element={<AssignMahasiswa />} />
           <Route path="/admin/assign-dosen" element={<AssignDosen />} />
           <Route path="/admin/notifikasi" element={<AdminNotifikasi />} />

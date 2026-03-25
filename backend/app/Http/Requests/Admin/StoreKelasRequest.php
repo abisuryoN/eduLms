@@ -26,7 +26,7 @@ class StoreKelasRequest extends FormRequest
             'fakultas_id'    => 'nullable|exists:fakultas,id',
             'prodi_id'       => 'nullable|exists:prodi,id',
             'mata_kuliah_id' => 'required|exists:mata_kuliah,id',
-            'dosen_id'       => 'required|exists:dosen,id',
+            'dosen_id'       => 'nullable|exists:dosen,id',
             'dosen_pa_id'    => 'nullable|exists:dosen,id',
             'nama_kelas'     => 'required|string|max:10',
             'semester'       => 'required|string',

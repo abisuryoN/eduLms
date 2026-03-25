@@ -1,0 +1,265 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
+import { Pagination } from '../../components/ui/Pagination'
+import { Search, Users, Filter, Loader2 } from 'lucide-react'
+import api from '../../lib/api'
+
+const DataDosen = () => {
+  // Reference data
+  const [fakultasList, setFakultasList] = useState([])
+  const [prodiList, setProdiList] = useState([])
+
+  // Filters
+  const [selectedFakultas, setSelectedFakultas] = useState('')
+  const [selectedProdi, setSelectedProdi] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Data
+  const [dosenData, setDosenData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [loadingRef, setLoadingRef] = useState(true)
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  // Debounce timer
+  const debounceRef = useRef(null)
+
+  // Fetch reference data (fakultas)
+  useEffect(() => {
+    const fetchRef = async () => {
+      try {
+        const res = await api.get('/admin/referensi/options')
+        setFakultasList(res.data.fakultas || [])
+      } catch {
+        // silent
+      } finally {
+        setLoadingRef(false)
+      }
+    }
+    fetchRef()
+  }, [])
+
+  // When fakultas changes → fetch prodi
+  useEffect(() => {
+    setProdiList([])
+    setSelectedProdi('')
+    if (!selectedFakultas) return
+
+    const fetchProdi = async () => {
+      try {
+        const res = await api.get(`/admin/prodi?fakultas_id=${selectedFakultas}`)
+        setProdiList(res.data.data || res.data)
+      } catch {
+        // silent
+      }
+    }
+    fetchProdi()
+  }, [selectedFakultas])
+
+  // Debounce search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setCurrentPage(1)
+    }, 300)
+    return () => clearTimeout(debounceRef.current)
+  }, [searchQuery])
+
+  // Fetch dosen data (server-side)
+  const fetchDosen = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      params.set('page', currentPage)
+      params.set('per_page', pageSize)
+      if (selectedFakultas) params.set('fakultas_id', selectedFakultas)
+      if (selectedProdi) params.set('prodi_id', selectedProdi)
+      if (debouncedSearch) params.set('search', debouncedSearch)
+
+      const res = await api.get(`/admin/dosen?${params.toString()}`)
+      setDosenData(res.data)
+    } catch {
+      setDosenData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, pageSize, selectedFakultas, selectedProdi, debouncedSearch])
+
+  useEffect(() => {
+    fetchDosen()
+  }, [fetchDosen])
+
+  // Reset page on filter change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedFakultas, selectedProdi, pageSize])
+
+  const dosenList = dosenData?.data || []
+  const totalItems = dosenData?.total || 0
+  const totalPages = dosenData?.last_page || 1
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <Users className="h-7 w-7 text-brand-600 dark:text-brand-400" />
+          Data Dosen
+        </h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Kelola dan lihat data dosen berdasarkan fakultas dan program studi.
+        </p>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+              <Filter className="h-4 w-4" /> Filter:
+            </div>
+
+            {/* Fakultas */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Fakultas</label>
+              <select
+                value={selectedFakultas}
+                onChange={(e) => setSelectedFakultas(e.target.value)}
+                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
+                disabled={loadingRef}
+              >
+                <option value="">Semua Fakultas</option>
+                {fakultasList.map(f => (
+                  <option key={f.id} value={f.id}>{f.nama}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Prodi */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Program Studi</label>
+              <select
+                value={selectedProdi}
+                onChange={(e) => setSelectedProdi(e.target.value)}
+                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
+                disabled={!selectedFakultas}
+              >
+                <option value="">Semua Prodi</option>
+                {prodiList.map(p => (
+                  <option key={p.id} value={p.id}>{p.nama}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search */}
+            <div className="flex-1 min-w-[250px]">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Cari</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama / NIDN..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <div className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">No</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nama Dosen</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">NIDN</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fakultas</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Program Studi</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                {loading ? (
+                  // Skeleton loading
+                  Array.from({ length: pageSize }).map((_, i) => (
+                    <tr key={`skel-${i}`}>
+                      {Array.from({ length: 5 }).map((_, j) => (
+                        <td key={j} className="px-6 py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style={{width: j === 1 ? '60%' : '40%'}}></div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : dosenList.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                      <Users className="h-10 w-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                      <p className="text-sm">Tidak ada data dosen ditemukan.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  dosenList.map((dosen, index) => (
+                    <tr key={dosen.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {(currentPage - 1) * pageSize + index + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-brand-100 dark:bg-brand-900/50 flex items-center justify-center text-brand-600 dark:text-brand-400 text-sm font-bold">
+                            {dosen.user?.name?.charAt(0)?.toUpperCase()}
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{dosen.user?.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 font-mono">
+                        {dosen.id_kerja || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        {dosen.prodi?.fakultas?.nama || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                          {dosen.prodi?.nama || '-'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {!loading && totalItems > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            />
+          )}
+
+          {/* Loading indicator bar */}
+          {loading && (
+            <div className="flex items-center justify-center py-2 text-xs text-gray-400 gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" /> Memuat data...
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+export default DataDosen
