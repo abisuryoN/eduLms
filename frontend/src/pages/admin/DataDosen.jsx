@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card'
 import { Pagination } from '../../components/ui/Pagination'
-import { Search, Users, Filter, Loader2 } from 'lucide-react'
+import { Search, Users, Filter, Loader2, ChevronDown, ChevronRight, BookOpen } from 'lucide-react'
 import api from '../../lib/api'
 
 const DataDosen = () => {
@@ -19,6 +19,9 @@ const DataDosen = () => {
   const [dosenData, setDosenData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [loadingRef, setLoadingRef] = useState(true)
+
+  // Expandable row state
+  const [expandedRow, setExpandedRow] = useState(null)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -180,6 +183,7 @@ const DataDosen = () => {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800/50">
                 <tr>
+                  <th className="px-6 py-3 w-10"></th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">No</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nama Dosen</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">NIDN</th>
@@ -201,17 +205,26 @@ const DataDosen = () => {
                   ))
                 ) : dosenList.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                       <Users className="h-10 w-10 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                       <p className="text-sm">Tidak ada data dosen ditemukan.</p>
                     </td>
                   </tr>
                 ) : (
-                  dosenList.map((dosen, index) => (
-                    <tr key={dosen.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {(currentPage - 1) * pageSize + index + 1}
-                      </td>
+                  dosenList.map((dosen, index) => {
+                    const isExpanded = expandedRow === dosen.id
+                    return (
+                      <React.Fragment key={dosen.id}>
+                        <tr 
+                          className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer ${isExpanded ? 'bg-brand-50/30 dark:bg-brand-900/10' : ''}`}
+                          onClick={() => setExpandedRow(isExpanded ? null : dosen.id)}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
+                            {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {(currentPage - 1) * pageSize + index + 1}
+                          </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-brand-100 dark:bg-brand-900/50 flex items-center justify-center text-brand-600 dark:text-brand-400 text-sm font-bold">
@@ -232,7 +245,59 @@ const DataDosen = () => {
                         </span>
                       </td>
                     </tr>
-                  ))
+                    {isExpanded && (
+                      <tr className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-700">
+                        <td colSpan={6} className="px-6 py-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pl-14">
+                            {/* Pengajar Info */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-brand-600 dark:text-brand-400">
+                                <BookOpen className="w-4 h-4" /> Dosen Pengajar
+                              </div>
+                              {dosen.teaching_assignments?.length > 0 ? (
+                                <div className="space-y-2">
+                                  {dosen.teaching_assignments.map((ta) => (
+                                    <div key={ta.id} className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                                      <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                        {ta.mata_kuliah?.nama} <span className="text-xs text-gray-500 font-normal">({ta.mata_kuliah?.sks} SKS)</span>
+                                      </div>
+                                      <div className="flex gap-4 mt-1">
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">Kelas: <span className="font-medium">{ta.kelas?.nama_kelas}</span></div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">Sem: <span className="font-medium">{ta.kelas?.semester}</span></div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">Belum ada kelas yang diajar.</p>
+                              )}
+                            </div>
+
+                            {/* PA Info */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                <Users className="w-4 h-4" /> Pembimbing Akademik (PA)
+                              </div>
+                              {dosen.pembimbing_akademik?.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {dosen.pembimbing_akademik.map((pa) => (
+                                    <div key={pa.id} className="inline-flex flex-col items-center justify-center p-2 px-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                      <span className="text-xs font-semibold">Kelas {pa.kelas?.nama_kelas}</span>
+                                      <span className="text-[10px] opacity-80">Sem {pa.kelas?.semester}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">Belum ditugaskan sebagai PA.</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+                  })
                 )}
               </tbody>
             </table>

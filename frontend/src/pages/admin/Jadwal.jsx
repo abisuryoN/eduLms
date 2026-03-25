@@ -24,6 +24,16 @@ const JadwalAdmin = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
+  // Cascading Filters State
+  const [fakultasList, setFakultasList] = useState([])
+  const [prodiList, setProdiList] = useState([])
+  const [semesterList, setSemesterList] = useState([])
+  
+  const [filterFakultas, setFilterFakultas] = useState('')
+  const [filterProdi, setFilterProdi] = useState('')
+  const [filterSemester, setFilterSemester] = useState('')
+  const [filterKelas, setFilterKelas] = useState('')
+
   const [formData, setFormData] = useState({
     kelas_id: '',
     hari: 'Senin',
@@ -36,26 +46,84 @@ const JadwalAdmin = () => {
 
   const hariOptions = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
 
-  const fetchAllData = async () => {
+  useEffect(() => {
+    const fetchRef = async () => {
+      try {
+        const [resRef] = await Promise.all([
+          api.get('/admin/referensi/options')
+        ])
+        setFakultasList(resRef.data.fakultas || [])
+        setSemesterList([1, 2, 3, 4, 5, 6, 7, 8])
+      } catch (error) {
+        console.error('Failed to load references', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchRef()
+  }, [])
+
+  useEffect(() => {
+    if (!filterFakultas) {
+      setProdiList([])
+      setFilterProdi('')
+      setFilterSemester('')
+      setFilterKelas('')
+      setKelasList([])
+      setJadwalList([])
+      return
+    }
+    const fetchProdi = async () => {
+      try {
+        const res = await api.get(`/admin/prodi?fakultas_id=${filterFakultas}`)
+        setProdiList(res.data)
+        setFilterProdi('')
+        setFilterSemester('')
+        setFilterKelas('')
+        setKelasList([])
+        setJadwalList([])
+      } catch (error) {}
+    }
+    fetchProdi()
+  }, [filterFakultas])
+
+  useEffect(() => {
+    if (!filterProdi || !filterSemester) {
+        setKelasList([])
+        setFilterKelas('')
+        setJadwalList([])
+        return
+    }
+    const fetchKelas = async () => {
+        try {
+            const res = await api.get(`/admin/kelas?fakultas_id=${filterFakultas}&prodi_id=${filterProdi}&semester=${filterSemester}&per_page=100`)
+            setKelasList(res.data.data || res.data)
+            setFilterKelas('')
+            setJadwalList([])
+        } catch (error) {}
+    }
+    fetchKelas()
+  }, [filterProdi, filterSemester, filterFakultas])
+
+  const fetchJadwalKelas = async (kelasId) => {
+    if (!kelasId) {
+        setJadwalList([])
+        return
+    }
     setLoading(true)
     try {
-      const [resJadwal, resKelas] = await Promise.all([
-        api.get('/admin/jadwal'),
-        api.get('/admin/kelas?per_page=1000') // Simplification
-      ])
-      
-      setJadwalList(resJadwal.data)
-      setKelasList(resKelas.data.data || resKelas.data)
+        const res = await api.get(`/admin/jadwal?kelas_id=${kelasId}`)
+        setJadwalList(res.data)
     } catch (error) {
-      toast.error('Gagal memuat data jadwal')
+        toast.error('Gagal memuat data jadwal')
     } finally {
-      setLoading(false)
+        setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchAllData()
-  }, [])
+    fetchJadwalKelas(filterKelas)
+  }, [filterKelas])
 
   // Room Formatting Logic: R.[Gedung].[Lantai].[Ruangan]
   const formatRoom = (gedung, lantai, ruangan) => {
@@ -129,7 +197,7 @@ const JadwalAdmin = () => {
         toast.success('Jadwal berhasil diupdate')
       }
       setIsModalOpen(false)
-      fetchAllData()
+      fetchJadwalKelas(filterKelas)
     } catch (error) {
       toast.error(error.response?.data?.message || 'Gagal menyimpan jadwal')
     } finally {
@@ -142,7 +210,7 @@ const JadwalAdmin = () => {
       try {
         await api.delete(`/admin/jadwal/${id}`)
         toast.success('Jadwal berhasil dihapus')
-        fetchAllData()
+        fetchJadwalKelas(filterKelas)
       } catch (error) {
         toast.error('Gagal menghapus jadwal')
       }
@@ -166,21 +234,80 @@ const JadwalAdmin = () => {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-colors"
-            placeholder="Cari hari, matkul, kelas, atau dosen..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="flex flex-col gap-4">
+        {/* Cascading Filter */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Fakultas</label>
+                <select
+                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500"
+                    value={filterFakultas}
+                    onChange={(e) => setFilterFakultas(e.target.value)}
+                >
+                    <option value="">-- Pilih Fakultas --</option>
+                    {fakultasList.map(f => (
+                        <option key={f.id} value={f.id}>{f.kode} - {f.nama}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Prodi</label>
+                <select
+                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500 disabled:opacity-50"
+                    value={filterProdi}
+                    onChange={(e) => setFilterProdi(e.target.value)}
+                    disabled={!filterFakultas}
+                >
+                    <option value="">-- Pilih Prodi --</option>
+                    {prodiList.map(p => (
+                        <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Semester</label>
+                <select
+                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500 disabled:opacity-50"
+                    value={filterSemester}
+                    onChange={(e) => setFilterSemester(e.target.value)}
+                    disabled={!filterProdi}
+                >
+                    <option value="">-- Pilih Semester --</option>
+                    {semesterList.map(s => (
+                        <option key={s} value={s}>Semester {s}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Kelas</label>
+                <select
+                    className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-xl sm:text-sm focus:ring-brand-500 disabled:opacity-50"
+                    value={filterKelas}
+                    onChange={(e) => setFilterKelas(e.target.value)}
+                    disabled={!filterSemester || kelasList.length === 0}
+                >
+                    <option value="">-- Pilih Kelas --</option>
+                    {kelasList.map(k => (
+                        <option key={k.id} value={k.id}>{k.nama_kelas} - {k.mata_kuliah?.nama}</option>
+                    ))}
+                </select>
+            </div>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Menampilkan {filteredJadwal.length} jadwal
+        
+        <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+            <div className="relative w-full sm:max-w-xs">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                    type="text"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 rounded-xl sm:text-sm"
+                    placeholder="Cari dalam jadwal..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+            <div>Menampilkan {filteredJadwal.length} jadwal</div>
         </div>
       </div>
 
@@ -201,10 +328,16 @@ const JadwalAdmin = () => {
                 <tr>
                   <td colSpan="5" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">Memuat data...</td>
                 </tr>
+              ) : !filterKelas ? (
+                <tr>
+                  <td colSpan="5" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                    Silakan lengkapi filter hingga memilih kelas terlebih dahulu.
+                  </td>
+                </tr>
               ) : paginatedJadwal.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                    {searchQuery ? 'Tidak ada hasil yang cocok dengan pencarian.' : 'Belum ada jadwal yang dibuat.'}
+                    {searchQuery ? 'Tidak ada hasil yang cocok dengan pencarian.' : 'Belum ada jadwal untuk kelas ini.'}
                   </td>
                 </tr>
               ) : (

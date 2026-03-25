@@ -21,6 +21,9 @@ class DataDosenService
                 'user:id,name,email,avatar',
                 'prodi:id,fakultas_id,kode,nama',
                 'prodi.fakultas:id,kode,nama',
+                'teachingAssignments.mataKuliah:id,kode,nama,sks',
+                'teachingAssignments.kelas:id,nama_kelas,semester',
+                'pembimbingAkademik.kelas:id,nama_kelas,semester',
             ]);
 
         // Filter by fakultas (through prodi)

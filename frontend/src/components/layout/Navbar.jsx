@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
-import { Link } from 'react-router-dom'
-import { Bell, Menu, UserCircle, LogOut, Settings, Sun, Moon } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Bell, Menu, UserCircle, LogOut, Sun, Moon, MessageSquare } from 'lucide-react'
 import api from '../../lib/api'
 import { Avatar } from '../ui/Avatar'
 
@@ -14,6 +14,7 @@ const Navbar = ({ toggleSidebar }) => {
   const [notifs, setNotifs] = useState([])
   const dropdownRef = useRef(null)
   const notifRef = useRef(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     // Fetch notifications
@@ -138,16 +139,38 @@ const Navbar = ({ toggleSidebar }) => {
                       Tidak ada notifikasi baru
                     </div>
                   ) : (
-                    notifs.map((notif) => (
-                      <div 
-                        key={notif.id} 
-                        className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer block border-b border-gray-50 dark:border-gray-700/50 last:border-0"
-                        onClick={() => markAsRead(notif.id)}
-                      >
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notif.judul}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{notif.pesan}</p>
-                      </div>
-                    ))
+                    notifs.map((notif) => {
+                      const isChat = notif.tipe === 'chat'
+                      
+                      return (
+                        <div 
+                          key={notif.id} 
+                          className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer block border-b border-gray-50 dark:border-gray-700/50 last:border-0"
+                          onClick={() => {
+                            markAsRead(notif.id)
+                            if (isChat && notif.data?.kelas_id) {
+                              const url = user?.role === 'admin' 
+                                ? `/admin/chat/kelas/${notif.data.kelas_id}` 
+                                : `/${user?.role}/chat?kelas_id=${notif.data.kelas_id}`
+                              navigate(url)
+                              setNotifOpen(false)
+                            }
+                          }}
+                        >
+                          <div className="flex gap-2">
+                            {isChat && (
+                              <div className="mt-0.5 shrink-0">
+                                <MessageSquare className="w-4 h-4 text-brand-500" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{notif.judul}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{notif.pesan}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
                   )}
                 </div>
               </div>

@@ -20,6 +20,7 @@ const AssignMahasiswa = () => {
   // Filters
   const [selectedFakultas, setSelectedFakultas] = useState('')
   const [selectedProdi, setSelectedProdi] = useState('')
+  const [selectedSemester, setSelectedSemester] = useState('')
   const [selectedKelasId, setSelectedKelasId] = useState(defaultKelasId)
   const [selectedKelasDetail, setSelectedKelasDetail] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -57,6 +58,7 @@ const AssignMahasiswa = () => {
   useEffect(() => {
     setProdiList([])
     setSelectedProdi('')
+    setSelectedSemester('')
     setKelasList([])
     setSelectedKelasId('')
     setSelectedKelasDetail(null)
@@ -70,21 +72,21 @@ const AssignMahasiswa = () => {
     fetchProdi()
   }, [selectedFakultas])
 
-  // Prodi → fetch Kelas
+  // Prodi + Semester → fetch Kelas
   useEffect(() => {
     setKelasList([])
     setSelectedKelasId('')
     setSelectedKelasDetail(null)
-    if (!selectedProdi) return
+    if (!selectedProdi || !selectedSemester) return
     const fetchKelas = async () => {
       try {
-        const res = await api.get(`/admin/kelas?per_page=100&prodi_id=${selectedProdi}`)
+        const res = await api.get(`/admin/kelas?per_page=100&prodi_id=${selectedProdi}&semester=${selectedSemester}`)
         const allKelas = res.data.data || res.data
         setKelasList(allKelas)
       } catch { /* silent */ }
     }
     fetchKelas()
-  }, [selectedProdi])
+  }, [selectedProdi, selectedSemester])
 
   // When kelas selected → fetch kelas detail to get already-assigned students
   useEffect(() => {
@@ -231,6 +233,22 @@ const AssignMahasiswa = () => {
               </select>
             </div>
 
+            {/* Semester */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Semester</label>
+              <select
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+                disabled={!selectedProdi}
+              >
+                <option value="">-- Pilih Semester --</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                  <option key={s} value={s}>Semester {s}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Kelas */}
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Kelas</label>
@@ -238,7 +256,7 @@ const AssignMahasiswa = () => {
                 value={selectedKelasId}
                 onChange={(e) => setSelectedKelasId(e.target.value)}
                 className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                disabled={!selectedProdi}
+                disabled={!selectedProdi || !selectedSemester}
               >
                 <option value="">-- Pilih Kelas --</option>
                 {kelasList.map(k => (
@@ -247,18 +265,6 @@ const AssignMahasiswa = () => {
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Read-only Semester Autofill */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Semester Kelas</label>
-              <input
-                type="text"
-                readOnly
-                className="block w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-sm py-2 px-3 cursor-not-allowed"
-                value={selectedKelasDetail ? `Semester ${selectedKelasDetail.semester}` : '-'}
-                placeholder="Otomatis terisi..."
-              />
             </div>
           </div>
         </CardContent>
@@ -271,9 +277,9 @@ const AssignMahasiswa = () => {
             <Card className="bg-brand-50 dark:bg-brand-900/20 border-brand-100 dark:border-brand-800">
               <CardContent className="space-y-4">
                 <div>
-                  <div className="text-xs text-brand-600 dark:text-brand-400 font-semibold uppercase">Mata Kuliah</div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedKelasDetail.mata_kuliah?.nama}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Kode: {selectedKelasDetail.mata_kuliah?.kode} - {selectedKelasDetail.mata_kuliah?.sks} SKS</div>
+                  <div className="text-xs text-brand-600 dark:text-brand-400 font-semibold uppercase">Kelas Terpilih</div>
+                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedKelasDetail.nama_kelas} - {selectedKelasDetail.mata_kuliah?.nama}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Semester {selectedKelasDetail.semester} — {selectedKelasDetail.kategori_kelas || 'Regular Pagi'}</div>
                 </div>
                 <div>
                   <div className="text-xs text-brand-600 dark:text-brand-400 font-semibold uppercase">Dosen Pengajar</div>

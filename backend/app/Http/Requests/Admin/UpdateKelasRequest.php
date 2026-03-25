@@ -31,6 +31,7 @@ class UpdateKelasRequest extends FormRequest
             'nama_kelas'     => 'sometimes|string|max:10',
             'semester'       => 'sometimes|string',
             'tahun_ajaran'   => 'sometimes|string',
+            'kategori_kelas' => 'sometimes|in:Regular Pagi,Regular Sore,Regular Malam',
         ];
     }
 }

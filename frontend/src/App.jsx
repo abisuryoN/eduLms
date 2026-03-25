@@ -14,6 +14,7 @@ import AdminDashboard from './pages/admin/Dashboard'
 import ImportMahasiswa from './pages/admin/ImportMahasiswa'
 import ImportDosen from './pages/admin/ImportDosen'
 import ManajemenKelas from './pages/admin/ManajemenKelas'
+import KelasDetail from './pages/admin/KelasDetail'
 import JadwalAdmin from './pages/admin/Jadwal'
 import AssignMahasiswa from './pages/admin/AssignMahasiswa'
 import AssignDosen from './pages/admin/AssignDosen'
@@ -22,6 +23,8 @@ import ManajemenSlider from './pages/admin/ManajemenSlider'
 import ManajemenMataKuliah from './pages/admin/ManajemenMataKuliah'
 import DataDosen from './pages/admin/DataDosen'
 import DataMahasiswa from './pages/admin/DataMahasiswa'
+import DataKelas from './pages/admin/DataKelas'
+import AdminChat from './pages/mahasiswa/Chat' // Shared Chat Component
 
 // Dosen Pages
 import DosenDashboard from './pages/dosen/Dashboard'
@@ -59,10 +62,13 @@ const AppRoutes = () => {
           <Route path="/admin/import-mahasiswa" element={<ImportMahasiswa />} />
           <Route path="/admin/import-dosen" element={<ImportDosen />} />
           <Route path="/admin/manajemen-kelas" element={<ManajemenKelas />} />
+          <Route path="/admin/kelas/:id" element={<KelasDetail />} />
+          <Route path="/admin/chat/kelas/:id?" element={<AdminChat />} />
           <Route path="/admin/jadwal" element={<JadwalAdmin />} />
           <Route path="/admin/mata-kuliah" element={<ManajemenMataKuliah />} />
           <Route path="/admin/data-dosen" element={<DataDosen />} />
           <Route path="/admin/data-mahasiswa" element={<DataMahasiswa />} />
+          <Route path="/admin/data-kelas" element={<DataKelas />} />
           <Route path="/admin/assign-mahasiswa" element={<AssignMahasiswa />} />
           <Route path="/admin/assign-dosen" element={<AssignDosen />} />
           <Route path="/admin/notifikasi" element={<AdminNotifikasi />} />

@@ -239,6 +239,37 @@ class DosenController extends Controller
     }
 
     /* ══════════════════════════════════════════════
+     *  CHAT
+     * ══════════════════════════════════════════════ */
+
+    public function chatIndex(Kelas $kelas, Request $request): JsonResponse
+    {
+        $this->authorizeDosenKelas($request, $kelas);
+
+        $messages = \App\Models\Chat::where('kelas_id', $kelas->id)
+            ->with('user:id,name,avatar,role')
+            ->orderBy('created_at')
+            ->paginate(50);
+
+        return response()->json($messages);
+    }
+
+    public function chatSend(Request $request, Kelas $kelas): JsonResponse
+    {
+        $this->authorizeDosenKelas($request, $kelas);
+
+        $data = $request->validate(['pesan' => 'required|string|max:1000']);
+
+        $chat = \App\Models\Chat::create([
+            'kelas_id' => $kelas->id,
+            'user_id'  => $request->user()->id,
+            'pesan'    => $data['pesan'],
+        ]);
+
+        return response()->json($chat->load('user:id,name,avatar'), 201);
+    }
+
+    /* ══════════════════════════════════════════════
      *  NILAI
      * ══════════════════════════════════════════════ */
 
@@ -288,9 +319,19 @@ class DosenController extends Controller
     private function authorizeDosenKelas(Request $request, Kelas $kelas): void
     {
         $dosenId = $request->user()->dosen->id;
-        if ($kelas->dosen_id !== $dosenId) {
-            abort(403, 'Anda tidak memiliki akses ke kelas ini.');
-        }
+
+        // Check if main pengajar (legacy)
+        if ($kelas->dosen_id === $dosenId) return;
+
+        // Check if in teaching assignments
+        $isPengajar = $kelas->teachingAssignments()->where('dosen_id', $dosenId)->exists();
+        if ($isPengajar) return;
+
+        // Check if PA
+        $isPA = $kelas->pembimbingAkademik()->where('dosen_id', $dosenId)->exists();
+        if ($isPA) return;
+
+        abort(403, 'Anda tidak memiliki akses ke kelas ini.');
     }
 
     private function calculateGrade(float $total): string

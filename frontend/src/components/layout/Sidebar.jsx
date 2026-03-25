@@ -25,6 +25,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Data Dosen', path: '/admin/data-dosen', icon: UserCheck },
     { name: 'Data Mahasiswa', path: '/admin/data-mahasiswa', icon: GraduationCap },
+    { name: 'Data Kelas', path: '/admin/data-kelas', icon: BookOpen },
     { name: 'Import Mahasiswa', path: '/admin/import-mahasiswa', icon: Users },
     { name: 'Import Dosen', path: '/admin/import-dosen', icon: UserCheck },
     { name: 'Mata Kuliah', path: '/admin/mata-kuliah', icon: BookOpen },
@@ -38,6 +39,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   const dosenMenu = [
     { name: 'Dashboard', path: '/dosen/dashboard', icon: LayoutDashboard },
+    { name: 'Data Kelas', path: '/admin/data-kelas', icon: BookOpen },
     { name: 'Jadwal Hari Ini', path: '/dosen/dashboard', icon: Calendar },
     { name: 'Kelola Quiz', path: '/dosen/quiz', icon: BookMarked },
     { name: 'Chat Kelas', path: '/dosen/chat', icon: MessageSquare }, // Added Chat

@@ -9,12 +9,15 @@ class Notifikasi extends Model
     protected $table = 'notifikasi';
 
     protected $fillable = [
-        'user_id', 'kelas_id', 'judul', 'pesan', 'is_read', 'tipe',
+        'user_id', 'kelas_id', 'judul', 'pesan', 'is_read', 'tipe', 'data',
     ];
 
     protected function casts(): array
     {
-        return ['is_read' => 'boolean'];
+        return [
+            'is_read' => 'boolean',
+            'data'    => 'array',
+        ];
     }
 
     public function user()

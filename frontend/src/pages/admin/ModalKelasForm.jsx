@@ -25,6 +25,7 @@ export const ModalKelasForm = ({ isOpen, onClose, onSuccess }) => {
     prodi_id: '',
     tahun_ajaran: '',
     semester: '',
+    kategori_kelas: 'Regular Pagi',
     kelas_list: [{ nama_kelas: '', mata_kuliah_id: '' }]
   })
 
@@ -37,6 +38,7 @@ export const ModalKelasForm = ({ isOpen, onClose, onSuccess }) => {
         prodi_id: '',
         tahun_ajaran: '',
         semester: '',
+        kategori_kelas: 'Regular Pagi',
         kelas_list: [{ nama_kelas: '', mata_kuliah_id: '' }]
       })
       fetchInitialData()
@@ -115,7 +117,7 @@ export const ModalKelasForm = ({ isOpen, onClose, onSuccess }) => {
   }
 
   const validateStep1 = () => {
-    if (!formData.fakultas_id || !formData.prodi_id || !formData.tahun_ajaran || !formData.semester) {
+    if (!formData.fakultas_id || !formData.prodi_id || !formData.tahun_ajaran || !formData.semester || !formData.kategori_kelas) {
       toast.error("Semua field di Tahap 1 wajib diisi")
       return false
     }
@@ -146,6 +148,7 @@ export const ModalKelasForm = ({ isOpen, onClose, onSuccess }) => {
             prodi_id: formData.prodi_id,
             tahun_ajaran: formData.tahun_ajaran,
             semester: formData.semester,
+            kategori_kelas: formData.kategori_kelas,
             nama_kelas: k.nama_kelas,
             mata_kuliah_id: k.mata_kuliah_id,
           })
@@ -255,6 +258,20 @@ export const ModalKelasForm = ({ isOpen, onClose, onSuccess }) => {
                     {semesterOptions.map(s => (
                       <option key={s} value={s} className="dark:bg-gray-800">{s}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100 mb-1">Kategori Kelas</label>
+                  <select
+                    className="block w-full rounded-xl border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2 px-3 border transition-colors"
+                    value={formData.kategori_kelas}
+                    onChange={(e) => setFormData({...formData, kategori_kelas: e.target.value})}
+                    required
+                  >
+                    <option value="Regular Pagi" className="dark:bg-gray-800">Regular Pagi</option>
+                    <option value="Regular Sore" className="dark:bg-gray-800">Regular Sore</option>
+                    <option value="Regular Malam" className="dark:bg-gray-800">Regular Malam</option>
                   </select>
                 </div>
               </div>

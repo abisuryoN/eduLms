@@ -37,3 +37,36 @@ export const TableSkeleton = ({ rows = 5, columns = 4, className = '' }) => {
     </div>
   );
 };
+
+export const PageSkeleton = ({ className = '' }) => {
+  return (
+    <div className={`p-6 space-y-6 ${className}`}>
+
+      {/* Header */}
+      <div className="space-y-2">
+        <Skeleton className="h-6 w-1/3" />
+        <Skeleton className="h-4 w-1/4" />
+      </div>
+
+      {/* Card utama */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-xl p-4 space-y-3 shadow-sm">
+        <Skeleton className="h-5 w-1/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+
+      {/* Section tambahan */}
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-1/5" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+
+      {/* Table contoh */}
+      <TableSkeleton rows={3} columns={4} />
+
+    </div>
+  );
+};

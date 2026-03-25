@@ -22,7 +22,7 @@ class DataMahasiswaService
                 'user:id,name,email,avatar',
                 'prodi:id,fakultas_id,kode,nama',
                 'prodi.fakultas:id,kode,nama',
-                'kelas:kelas.id,kelas.nama_kelas,kelas.semester',
+                'kelas:kelas.id,kelas.nama_kelas,kelas.semester,kelas.kategori_kelas',
             ]);
 
         // Filter by fakultas (through prodi)
@@ -54,7 +54,7 @@ class DataMahasiswaService
             });
         });
 
-        $perPage = in_array((int) $request->get('per_page'), [10, 25, 50]) 
+        $perPage = in_array((int) $request->get('per_page'), [10, 15, 25, 50]) 
             ? (int) $request->get('per_page') 
             : 10;
 

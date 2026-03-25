@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\DosenController;
 use App\Http\Controllers\Api\ImportMahasiswaController;
 use App\Http\Controllers\Api\LoginSlideController;
@@ -87,6 +88,13 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::post('/login-slides', [LoginSlideController::class, 'store']);
                 Route::put('/login-slides/{loginSlide}', [LoginSlideController::class, 'update']);
                 Route::delete('/login-slides/{loginSlide}', [LoginSlideController::class, 'destroy']);
+
+                // Chat Kelas (Admin)
+                Route::get('/kelas/{kelas}/info', [ChatController::class, 'kelasInfo']);
+                Route::get('/kelas/{kelas}/chat', [ChatController::class, 'index']);
+                Route::post('/kelas/{kelas}/chat', [ChatController::class, 'store']);
+                Route::put('/kelas/{kelas}/chat/{chat}', [ChatController::class, 'update']);
+                Route::delete('/kelas/{kelas}/chat/{chat}', [ChatController::class, 'destroy']);
             });
 
         // ══════════════════════════════════════════
@@ -96,6 +104,13 @@ Route::middleware('auth:sanctum')->group(function () {
             ->prefix('dosen')
             ->group(function () {
                 Route::get('/jadwal-hari-ini', [DosenController::class, 'jadwalHariIni']);
+
+                // Chat Kelas (Dosen)
+                Route::get('/kelas/{kelas}/info', [ChatController::class, 'kelasInfo']);
+                Route::get('/kelas/{kelas}/chat', [ChatController::class, 'index']);
+                Route::post('/kelas/{kelas}/chat', [ChatController::class, 'store']);
+                Route::put('/kelas/{kelas}/chat/{chat}', [ChatController::class, 'update']);
+                Route::delete('/kelas/{kelas}/chat/{chat}', [ChatController::class, 'destroy']);
                 Route::get('/kelas', [DosenController::class, 'kelasList']);
                 Route::get('/kelas/{kelas}/mahasiswa', [DosenController::class, 'kelasMahasiswa']);
 
@@ -120,6 +135,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
                 // Notifikasi
                 Route::post('/kelas/{kelas}/notifikasi', [DosenController::class, 'sendNotifikasi']);
+
+                // Chat
+                Route::get('/kelas/{kelas}/chat', [DosenController::class, 'chatIndex']);
+                Route::post('/kelas/{kelas}/chat', [DosenController::class, 'chatSend']);
             });
 
         // ══════════════════════════════════════════
@@ -147,6 +166,13 @@ Route::middleware('auth:sanctum')->group(function () {
                 // Chat
                 Route::get('/kelas/{kelas}/chat', [MahasiswaController::class, 'chatIndex']);
                 Route::post('/kelas/{kelas}/chat', [MahasiswaController::class, 'chatSend']);
+
+                // Chat Kelas (Mahasiswa - read + send)
+                Route::get('/kelas-chat/{kelas}/info', [ChatController::class, 'kelasInfo']);
+                Route::get('/kelas-chat/{kelas}/chat', [ChatController::class, 'index']);
+                Route::post('/kelas-chat/{kelas}/chat', [ChatController::class, 'store']);
+                Route::put('/kelas-chat/{kelas}/chat/{chat}', [ChatController::class, 'update']);
+                Route::delete('/kelas-chat/{kelas}/chat/{chat}', [ChatController::class, 'destroy']);
             });
     });
 });

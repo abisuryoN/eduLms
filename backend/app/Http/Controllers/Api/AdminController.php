@@ -125,7 +125,12 @@ class AdminController extends Controller
 
     public function kelasIndex(Request $request): JsonResponse
     {
-        $query = Kelas::with(['mataKuliah', 'dosen.user', 'dosenPA.user', 'prodi.fakultas']);
+        $query = Kelas::with([
+            'prodi.fakultas',
+            'teachingAssignments.mataKuliah',
+            'teachingAssignments.dosen.user',
+            'pembimbingAkademik.dosen.user'
+        ]);
 
         if ($request->has('semester')) {
             $query->where('semester', $request->semester);
@@ -133,8 +138,26 @@ class AdminController extends Controller
         if ($request->has('tahun_ajaran')) {
             $query->where('tahun_ajaran', $request->tahun_ajaran);
         }
+        if ($request->has('fakultas_id')) {
+            $query->where('fakultas_id', $request->fakultas_id);
+        }
+        if ($request->has('prodi_id')) {
+            $query->where('prodi_id', $request->prodi_id);
+        }
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_kelas', 'LIKE', "%{$search}%")
+                  ->orWhereHas('teachingAssignments.mataKuliah', function ($mq) use ($search) {
+                      $mq->where('nama', 'LIKE', "%{$search}%");
+                  })
+                  ->orWhereHas('teachingAssignments.dosen.user', function ($uq) use ($search) {
+                      $uq->where('name', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
 
-        return response()->json($query->orderByDesc('id')->paginate(20));
+        return response()->json($query->orderByDesc('id')->paginate($request->get('per_page', 20)));
     }
 
     public function kelasStore(\App\Http\Requests\Admin\StoreKelasRequest $request): JsonResponse
@@ -143,7 +166,12 @@ class AdminController extends Controller
 
         $kelas = $this->kelasService->create($data);
 
-        return response()->json($kelas->load(['mataKuliah', 'dosen.user', 'dosenPA.user', 'prodi.fakultas']), 201);
+        return response()->json($kelas->load([
+            'mataKuliah', 
+            'teachingAssignments.dosen.user',
+            'pembimbingAkademik.dosen.user',
+            'prodi.fakultas'
+        ]), 201);
     }
 
     public function kelasUpdate(\App\Http\Requests\Admin\UpdateKelasRequest $request, Kelas $kelas): JsonResponse
@@ -163,7 +191,14 @@ class AdminController extends Controller
 
     public function kelasShow(Kelas $kelas): JsonResponse
     {
-        return response()->json($kelas->load(['mataKuliah', 'dosen.user', 'mahasiswa.user', 'jadwal']));
+        return response()->json($kelas->load([
+            'prodi.fakultas',
+            'teachingAssignments.mataKuliah',
+            'teachingAssignments.dosen.user:id,name',
+            'pembimbingAkademik.dosen.user:id,name',
+            'mahasiswa.user:id,name',
+            'jadwal',
+        ]));
     }
 
     /* ══════════════════════════════════════════════

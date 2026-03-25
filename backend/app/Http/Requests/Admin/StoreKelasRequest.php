@@ -25,12 +25,13 @@ class StoreKelasRequest extends FormRequest
         return [
             'fakultas_id'    => 'nullable|exists:fakultas,id',
             'prodi_id'       => 'nullable|exists:prodi,id',
-            'mata_kuliah_id' => 'required|exists:mata_kuliah,id',
+            'mata_kuliah_id' => 'nullable|exists:mata_kuliah,id',
             'dosen_id'       => 'nullable|exists:dosen,id',
             'dosen_pa_id'    => 'nullable|exists:dosen,id',
             'nama_kelas'     => 'required|string|max:10',
             'semester'       => 'required|string',
             'tahun_ajaran'   => 'required|string',
+            'kategori_kelas' => 'required|in:Regular Pagi,Regular Sore,Regular Malam',
         ];
     }
 }
